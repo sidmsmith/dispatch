@@ -33,12 +33,18 @@
       --skeleton-shine: #f8fafc;
     }
 
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
     body {
       background: var(--bg-color);
       color: var(--text-color);
       font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       padding: 1rem;
       margin: 0;
+      display: flex;
+      flex-direction: column;
     }
 
     .card {
@@ -47,9 +53,13 @@
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       padding: 1.5rem;
-      margin-bottom: 1.5rem;
+      margin-bottom: 0;
       position: relative;
       overflow: visible;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
 
     /* Theme selector */
@@ -129,6 +139,17 @@
     .status.info { background: #e3f2fd; color: #1976d2; }
     .status.success { background: #e8f5e9; color: #2e7d32; }
     .status.error { background: #ffebee; color: #c62828; }
+
+    #filtersScreen {
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+    }
+    #resultsScreen {
+      flex: 1;
+      min-height: 0;
+      flex-direction: column;
+    }
 
     /* Filter form grid */
     .filter-grid {
@@ -274,8 +295,8 @@
     .trips-layout {
       display: flex;
       gap: 0;
-      height: calc(100vh - 200px);
-      min-height: 400px;
+      flex: 1;
+      min-height: 0;
     }
     .trips-table-wrapper {
       flex: 1;
@@ -543,7 +564,7 @@
       .detail-panel { display: none !important; }
       .trips-table-wrapper { display: none; }
       .trip-cards-mobile { display: block; }
-      .trips-layout { height: auto; min-height: auto; flex-direction: column; }
+      .trips-layout { flex: none; height: auto; min-height: auto; flex-direction: column; }
     }
     @media (min-width: 993px) {
       .bottom-sheet-overlay, .bottom-sheet { display: none !important; }
@@ -878,7 +899,8 @@
       token = res.token;
       status('Authenticated – loading equipment types...', 'success');
       authSection.style.display = 'none';
-      filtersScreen.style.display = 'block';
+      filtersScreen.style.display = 'flex';
+      filtersScreen.style.flexDirection = 'column';
       trackEvent('app_opened', {});
       await loadEquipmentTypes();
       status('Ready – configure filters and search.', 'success');
@@ -1070,16 +1092,18 @@
 
     function showResults() {
       filtersScreen.style.display = 'none';
-      resultsScreen.style.display = 'block';
+      resultsScreen.style.display = 'flex';
     }
 
     backToFilters.addEventListener('click', () => {
       resultsScreen.style.display = 'none';
-      filtersScreen.style.display = 'block';
+      filtersScreen.style.display = 'flex';
+      filtersScreen.style.flexDirection = 'column';
     });
     emptyBackBtn.addEventListener('click', () => {
       resultsScreen.style.display = 'none';
-      filtersScreen.style.display = 'block';
+      filtersScreen.style.display = 'flex';
+      filtersScreen.style.flexDirection = 'column';
     });
 
     // === RENDER TABLE (desktop) ===
