@@ -53,6 +53,18 @@
     }
 
     /* Theme selector */
+    .logo-wrapper {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      margin-bottom: 0.25rem;
+    }
+    .logo-wrapper img.app-logo {
+      max-height: 24px;
+      width: auto;
+      display: block;
+    }
+
     .theme-selector-btn {
       position: absolute;
       top: 0.5rem;
@@ -578,6 +590,9 @@
       <button class="theme-option" data-theme="manhattan">Manhattan</button>
     </div>
 
+    <div class="logo-wrapper">
+      <img src="/manhattan-logo.png" alt="Manhattan Associates" class="app-logo" onerror="this.style.display='none'" />
+    </div>
     <h4 class="header-title mb-3">
       <span class="header-title-text"><i class="fas fa-route"></i> Dispatch</span>
       <span class="app-version">v1.0.0</span>
