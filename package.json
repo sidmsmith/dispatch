@@ -1,0 +1,19 @@
+{
+  "name": "dispatch",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "node server.js"
+  },
+  "description": "Dispatch - Trip filtering and driver self-assignment for Manhattan TMS",
+  "main": "server.js",
+  "dependencies": {
+    "express": "^5.1.0",
+    "node-fetch": "^2.6.7"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

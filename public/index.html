@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dispatch v1.0.0</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #1f2933;
+      --text-muted: #616e7c;
+      --card-bg: #f8fafc;
+      --border-color: #d9e2ec;
+      --input-bg: #ffffff;
+      --input-border: #cbd5e0;
+      --input-focus-bg: #ffffff;
+      --input-focus-border: #5a67d8;
+      --input-focus-shadow: rgba(90,103,216,0.25);
+      --primary-color: #5a67d8;
+      --primary-hover: #4c51bf;
+      --success-color: #28a745;
+      --danger-color: #dc3545;
+      --header-bg: #d9e2ec;
+      --header-text: #1f2933;
+      --chip-bg: #e2e8f0;
+      --chip-text: #2d3748;
+      --row-hover: #edf2f7;
+      --row-selected: #ebf4ff;
+      --detail-bg: #f7fafc;
+      --skeleton-base: #e2e8f0;
+      --skeleton-shine: #f8fafc;
+    }
+
+    body {
+      background: var(--bg-color);
+      color: var(--text-color);
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      padding: 1rem;
+      margin: 0;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      position: relative;
+      overflow: visible;
+    }
+
+    /* Theme selector */
+    .theme-selector-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.4rem;
+      cursor: pointer;
+      transition: transform 0.3s ease;
+      z-index: 5;
+    }
+    .theme-selector-btn:hover { transform: rotate(90deg); }
+
+    .header-title {
+      position: relative;
+      text-align: center;
+      width: 100%;
+      margin: 0;
+    }
+    .header-title-text {
+      display: inline-block;
+      color: var(--primary-color);
+    }
+    .app-version {
+      font-size: 0.35rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      white-space: nowrap;
+    }
+
+    .form-control, .form-select {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: var(--text-color);
+      border-radius: 8px;
+    }
+    .form-control:focus, .form-select:focus {
+      background: var(--input-focus-bg);
+      border-color: var(--input-focus-border);
+      box-shadow: 0 0 0 0.2rem var(--input-focus-shadow);
+      color: var(--text-color);
+    }
+    .btn-primary { background: var(--primary-color); border-color: var(--primary-color); }
+    .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+    .btn-success { background: var(--success-color); border-color: var(--success-color); }
+    .btn-danger { background: var(--danger-color); border-color: var(--danger-color); }
+
+    .status {
+      min-height: 1.5em;
+      font-weight: 500;
+      color: var(--text-color);
+      padding: 0.5rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+    .status.info { background: #e3f2fd; color: #1976d2; }
+    .status.success { background: #e8f5e9; color: #2e7d32; }
+    .status.error { background: #ffebee; color: #c62828; }
+
+    /* Filter form grid */
+    .filter-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+    @media (max-width: 768px) {
+      .filter-grid { grid-template-columns: 1fr; }
+    }
+    .filter-field label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+
+    /* Range slider styling */
+    .range-slider-container {
+      position: relative;
+      height: 40px;
+      display: flex;
+      align-items: center;
+    }
+    .range-slider-track {
+      position: absolute;
+      width: 100%;
+      height: 6px;
+      background: var(--border-color);
+      border-radius: 3px;
+    }
+    .range-slider-fill {
+      position: absolute;
+      height: 6px;
+      background: var(--primary-color);
+      border-radius: 3px;
+    }
+    .range-slider-container input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      position: absolute;
+      width: 100%;
+      height: 6px;
+      background: transparent;
+      pointer-events: none;
+      margin: 0;
+    }
+    .range-slider-container input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--primary-color);
+      border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      cursor: pointer;
+      pointer-events: all;
+    }
+    .range-slider-container input[type=range]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--primary-color);
+      border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      cursor: pointer;
+      pointer-events: all;
+    }
+    .range-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 0.15rem;
+    }
+
+    /* Segmented button */
+    .segmented-control {
+      display: flex;
+      border: 1px solid var(--input-border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--input-bg);
+    }
+    .segmented-control .seg-btn {
+      flex: 1;
+      padding: 0.5rem 0.5rem;
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .segmented-control .seg-btn.active {
+      background: var(--primary-color);
+      color: #fff;
+    }
+    .segmented-control .seg-btn:not(:last-child) {
+      border-right: 1px solid var(--input-border);
+    }
+
+    /* Filter chips */
+    .chips-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: var(--chip-bg);
+      color: var(--chip-text);
+      padding: 0.3rem 0.65rem;
+      border-radius: 16px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: default;
+    }
+    .chip .chip-close {
+      cursor: pointer;
+      font-size: 0.7rem;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    .chip .chip-close:hover { opacity: 1; }
+    .trip-count {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-right: 0.5rem;
+    }
+
+    /* Trips layout */
+    .trips-layout {
+      display: flex;
+      gap: 0;
+      height: calc(100vh - 200px);
+      min-height: 400px;
+    }
+    .trips-table-wrapper {
+      flex: 1;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+    }
+    .trips-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .trips-table thead th {
+      position: sticky;
+      top: 0;
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 0.65rem 0.5rem;
+      font-weight: 600;
+      font-size: 0.8rem;
+      border-bottom: 2px solid var(--border-color);
+      white-space: nowrap;
+      z-index: 2;
+    }
+    .trips-table tbody tr {
+      cursor: pointer;
+      transition: background 0.15s;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .trips-table tbody tr:hover {
+      background: var(--row-hover);
+    }
+    .trips-table tbody tr.selected {
+      background: var(--row-selected);
+      border-left: 3px solid var(--primary-color);
+    }
+    .trips-table tbody td {
+      padding: 0.6rem 0.5rem;
+      white-space: nowrap;
+    }
+
+    /* Detail panel */
+    .detail-panel {
+      width: 320px;
+      min-width: 280px;
+      border: 1px solid var(--border-color);
+      border-left: none;
+      border-radius: 0 8px 8px 0;
+      background: var(--detail-bg);
+      overflow-y: auto;
+      padding: 1.25rem;
+      display: none;
+    }
+    .detail-panel.visible { display: block; }
+    .detail-panel .detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+    .detail-panel .detail-close {
+      background: none;
+      border: none;
+      font-size: 1.2rem;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+    .detail-section {
+      margin-bottom: 1.25rem;
+    }
+    .detail-section h6 {
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--text-color);
+    }
+    .detail-kv {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.25rem 0;
+      font-size: 0.88rem;
+    }
+    .detail-kv .kv-label { color: var(--text-muted); }
+    .detail-kv .kv-value { font-weight: 500; }
+    .shipments-mini-table {
+      width: 100%;
+      font-size: 0.82rem;
+      border-collapse: collapse;
+    }
+    .shipments-mini-table th, .shipments-mini-table td {
+      padding: 0.3rem 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .shipments-mini-table th {
+      background: var(--header-bg);
+      font-weight: 600;
+    }
+    .driver-card {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .driver-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      color: var(--text-muted);
+    }
+
+    /* Mobile trip cards */
+    .trip-cards-mobile { display: none; }
+    .trip-card-item {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .trip-card-item:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      border-color: var(--primary-color);
+    }
+    .trip-card-item.selected {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 2px var(--input-focus-shadow);
+    }
+    .trip-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.4rem;
+    }
+    .trip-card-id { font-weight: 700; color: var(--primary-color); font-size: 0.95rem; }
+    .trip-card-status {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      background: var(--success-color);
+      color: #fff;
+    }
+    .trip-card-route {
+      font-size: 0.88rem;
+      color: var(--text-color);
+      margin-bottom: 0.25rem;
+    }
+    .trip-card-meta {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      gap: 1rem;
+    }
+
+    /* Bottom sheet (mobile detail) */
+    .bottom-sheet-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 900;
+    }
+    .bottom-sheet-overlay.visible { display: block; }
+    .bottom-sheet {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--card-bg);
+      border-radius: 16px 16px 0 0;
+      max-height: 85vh;
+      overflow-y: auto;
+      z-index: 901;
+      padding: 1.25rem;
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
+    }
+    .bottom-sheet.visible { transform: translateY(0); }
+    .bottom-sheet-handle {
+      width: 40px;
+      height: 4px;
+      background: var(--border-color);
+      border-radius: 2px;
+      margin: 0 auto 1rem;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-overlay.visible { display: flex; }
+    .modal-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      max-width: 400px;
+      width: 100%;
+      overflow: hidden;
+    }
+    .modal-header-success {
+      background: var(--success-color);
+      color: white;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .modal-header-error {
+      background: var(--danger-color);
+      color: white;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .modal-header-success h5, .modal-header-error h5 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+    .modal-body { padding: 1.5rem; }
+    .modal-body p { margin: 0; color: var(--text-color); font-size: 1rem; line-height: 1.5; }
+    .modal-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: flex-end;
+    }
+    .modal-footer .btn { min-width: 100px; }
+
+    /* Skeleton loaders */
+    .skeleton {
+      background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-shine) 50%, var(--skeleton-base) 75%);
+      background-size: 200% 100%;
+      animation: skeleton-pulse 1.5s infinite;
+      border-radius: 6px;
+    }
+    @keyframes skeleton-pulse {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .skeleton-row { height: 44px; margin-bottom: 4px; }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted);
+    }
+    .empty-state i { font-size: 3rem; margin-bottom: 1rem; display: block; }
+
+    /* Responsive breakpoints */
+    @media (max-width: 992px) {
+      .detail-panel { display: none !important; }
+      .trips-table-wrapper { display: none; }
+      .trip-cards-mobile { display: block; }
+      .trips-layout { height: auto; min-height: auto; flex-direction: column; }
+    }
+    @media (min-width: 993px) {
+      .bottom-sheet-overlay, .bottom-sheet { display: none !important; }
+    }
+
+    /* Theme selector popup */
+    .theme-popup {
+      display: none;
+      position: absolute;
+      top: 2.5rem;
+      right: 0.5rem;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      padding: 0.5rem;
+      z-index: 100;
+      min-width: 160px;
+    }
+    .theme-popup.visible { display: block; }
+    .theme-option {
+      display: block;
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: none;
+      background: transparent;
+      text-align: left;
+      font-size: 0.88rem;
+      cursor: pointer;
+      border-radius: 6px;
+      color: var(--text-color);
+    }
+    .theme-option:hover { background: var(--row-hover); }
+    .theme-option.active { background: var(--primary-color); color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="card" id="mainCard" style="max-width: 1200px; margin: 0 auto;">
+    <button class="theme-selector-btn" id="themeBtn" title="Select Theme"><i class="fas fa-cog"></i></button>
+    <div class="theme-popup" id="themePopup">
+      <h6 style="padding: 0.25rem 0.75rem; margin: 0 0 0.25rem; font-size: 0.8rem; color: var(--text-muted);">Select Theme</h6>
+      <button class="theme-option active" data-theme="light">Light</button>
+      <button class="theme-option" data-theme="dark">Dark</button>
+      <button class="theme-option" data-theme="manhattan">Manhattan</button>
+    </div>
+
+    <h4 class="header-title mb-3">
+      <span class="header-title-text"><i class="fas fa-route"></i> Dispatch</span>
+      <span class="app-version">v1.0.0</span>
+    </h4>
+
+    <!-- Auth Section -->
+    <div id="authSection">
+      <label class="form-label" style="font-weight: 600;">ORG:</label>
+      <div class="d-flex gap-2 align-items-center mb-1">
+        <input type="text" id="org" class="form-control" placeholder="Enter ORG" maxlength="20" style="width: 250px; max-width: 100%;" />
+        <button id="authBtn" class="btn btn-success px-4">Authenticate</button>
+      </div>
+      <small style="color: var(--text-muted);">Press Enter to authenticate</small>
+    </div>
+    <div class="status" id="status">Enter ORG and press Enter to authenticate</div>
+
+    <!-- Screen 1: Filters -->
+    <div id="filtersScreen" style="display:none;">
+      <div class="filter-grid">
+        <div class="filter-field">
+          <label>Destination City</label>
+          <input type="text" class="form-control" id="filterCity" placeholder="e.g. Philadelphia" />
+        </div>
+        <div class="filter-field">
+          <label>Destination State</label>
+          <input type="text" class="form-control" id="filterState" placeholder="e.g. PA" maxlength="2" />
+        </div>
+        <div class="filter-field">
+          <label>Total Duration Range</label>
+          <div class="range-slider-container" id="durationSlider">
+            <div class="range-slider-track"></div>
+            <div class="range-slider-fill" id="durationFill"></div>
+            <input type="range" id="durationMin" min="0" max="48" value="0" step="1" />
+            <input type="range" id="durationMax" min="0" max="48" value="48" step="1" />
+          </div>
+          <div class="range-labels"><span id="durationMinLabel">0h</span><span id="durationMaxLabel">48h</span></div>
+        </div>
+        <div class="filter-field">
+          <label>Total Number of Segments Range</label>
+          <div class="range-slider-container" id="segmentsSlider">
+            <div class="range-slider-track"></div>
+            <div class="range-slider-fill" id="segmentsFill"></div>
+            <input type="range" id="segmentsMin" min="1" max="20" value="1" step="1" />
+            <input type="range" id="segmentsMax" min="1" max="20" value="20" step="1" />
+          </div>
+          <div class="range-labels"><span id="segmentsMinLabel">1</span><span id="segmentsMaxLabel">20</span></div>
+        </div>
+        <div class="filter-field">
+          <label>Total Number of Stops Range</label>
+          <div class="range-slider-container" id="stopsSlider">
+            <div class="range-slider-track"></div>
+            <div class="range-slider-fill" id="stopsFill"></div>
+            <input type="range" id="stopsMin" min="1" max="20" value="1" step="1" />
+            <input type="range" id="stopsMax" min="1" max="20" value="20" step="1" />
+          </div>
+          <div class="range-labels"><span id="stopsMinLabel">1</span><span id="stopsMaxLabel">20</span></div>
+        </div>
+        <div class="filter-field">
+          <label>Backhaul</label>
+          <div class="segmented-control" id="backhaulControl">
+            <button class="seg-btn active" data-value="any">Any</button>
+            <button class="seg-btn" data-value="yes">Has Backhaul</button>
+            <button class="seg-btn" data-value="no">No Backhaul</button>
+          </div>
+        </div>
+        <div class="filter-field">
+          <label>Required Equipment</label>
+          <select class="form-select" id="filterEquipment">
+            <option value="">Any Equipment</option>
+          </select>
+        </div>
+        <div class="filter-field">
+          <label>Pickup Start Date-Time Range</label>
+          <div class="d-flex gap-2 align-items-center">
+            <input type="datetime-local" class="form-control" id="pickupFrom" />
+            <span style="color:var(--text-muted);">–</span>
+            <input type="datetime-local" class="form-control" id="pickupTo" />
+          </div>
+        </div>
+      </div>
+      <div class="text-center mt-3">
+        <button class="btn btn-primary px-5 py-2" id="submitFilters"><i class="fas fa-search"></i> Search Trips</button>
+      </div>
+    </div>
+
+    <!-- Screen 2: Results -->
+    <div id="resultsScreen" style="display:none;">
+      <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-3" id="backToFilters"><i class="fas fa-arrow-left"></i> Filters</button>
+        <span class="trip-count" id="tripCount"></span>
+      </div>
+      <div class="chips-bar" id="chipsBar"></div>
+
+      <!-- Skeleton loader -->
+      <div id="skeletonLoader" style="display:none;">
+        <div class="skeleton skeleton-row"></div>
+        <div class="skeleton skeleton-row"></div>
+        <div class="skeleton skeleton-row"></div>
+        <div class="skeleton skeleton-row"></div>
+        <div class="skeleton skeleton-row"></div>
+        <div class="skeleton skeleton-row"></div>
+      </div>
+
+      <!-- Desktop: table + detail panel -->
+      <div class="trips-layout" id="tripsLayout" style="display:none;">
+        <div class="trips-table-wrapper">
+          <table class="trips-table" id="tripsTable">
+            <thead>
+              <tr>
+                <th>Trip ID</th>
+                <th>Status</th>
+                <th>Origin</th>
+                <th>Destination</th>
+                <th>Pickup Window</th>
+                <th>Delivery Window</th>
+                <th>Duration</th>
+                <th>Stops</th>
+                <th>Segments</th>
+                <th>Backhaul</th>
+                <th>Equipment</th>
+                <th>Driver</th>
+              </tr>
+            </thead>
+            <tbody id="tripsBody"></tbody>
+          </table>
+        </div>
+        <div class="detail-panel" id="detailPanel">
+          <div class="detail-header">
+            <div>
+              <small style="color:var(--text-muted);">Trip</small>
+              <h5 id="detailTripId" style="margin:0;font-weight:700;"></h5>
+            </div>
+            <button class="detail-close" id="detailClose"><i class="fas fa-times"></i></button>
+          </div>
+          <div class="detail-section">
+            <h6>Overview</h6>
+            <div class="detail-kv"><span class="kv-label">Customer:</span><span class="kv-value" id="detailCustomer"></span></div>
+            <div class="detail-kv"><span class="kv-label">Weight:</span><span class="kv-value" id="detailWeight"></span></div>
+            <div class="detail-kv"><span class="kv-label">Volume:</span><span class="kv-value" id="detailVolume"></span></div>
+          </div>
+          <div class="detail-section">
+            <h6>Shipments</h6>
+            <table class="shipments-mini-table">
+              <thead><tr><th>Shipment</th><th>Volume</th></tr></thead>
+              <tbody id="detailShipments"></tbody>
+            </table>
+          </div>
+          <div class="detail-section">
+            <h6>Driver Assignment</h6>
+            <div class="driver-card">
+              <div class="driver-avatar"><i class="fas fa-user"></i></div>
+              <div>
+                <div id="detailDriverName" style="font-weight:600;"></div>
+                <div id="detailDriverRole" style="font-size:0.82rem;color:var(--text-muted);"></div>
+              </div>
+            </div>
+            <button class="btn btn-primary w-100" id="assignBtn"><i class="fas fa-user-check"></i> Assign Trip to Me</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile: card list -->
+      <div class="trip-cards-mobile" id="tripCardsMobile"></div>
+
+      <!-- Empty state -->
+      <div class="empty-state" id="emptyState" style="display:none;">
+        <i class="fas fa-search"></i>
+        <h5>No trips found</h5>
+        <p>Try adjusting your filters to broaden the search.</p>
+        <button class="btn btn-outline-primary mt-2" id="emptyBackBtn"><i class="fas fa-arrow-left"></i> Back to Filters</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile bottom sheet -->
+  <div class="bottom-sheet-overlay" id="sheetOverlay"></div>
+  <div class="bottom-sheet" id="bottomSheet">
+    <div class="bottom-sheet-handle"></div>
+    <div class="detail-header">
+      <div>
+        <small style="color:var(--text-muted);">Trip</small>
+        <h5 id="sheetTripId" style="margin:0;font-weight:700;"></h5>
+      </div>
+      <button class="detail-close" id="sheetClose"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="detail-section">
+      <h6>Overview</h6>
+      <div class="detail-kv"><span class="kv-label">Customer:</span><span class="kv-value" id="sheetCustomer"></span></div>
+      <div class="detail-kv"><span class="kv-label">Weight:</span><span class="kv-value" id="sheetWeight"></span></div>
+      <div class="detail-kv"><span class="kv-label">Volume:</span><span class="kv-value" id="sheetVolume"></span></div>
+    </div>
+    <div class="detail-section">
+      <h6>Shipments</h6>
+      <table class="shipments-mini-table">
+        <thead><tr><th>Shipment</th><th>Volume</th></tr></thead>
+        <tbody id="sheetShipments"></tbody>
+      </table>
+    </div>
+    <div class="detail-section">
+      <h6>Driver Assignment</h6>
+      <div class="driver-card">
+        <div class="driver-avatar"><i class="fas fa-user"></i></div>
+        <div>
+          <div id="sheetDriverName" style="font-weight:600;"></div>
+          <div id="sheetDriverRole" style="font-size:0.82rem;color:var(--text-muted);"></div>
+        </div>
+      </div>
+      <button class="btn btn-primary w-100" id="assignBtnMobile"><i class="fas fa-user-check"></i> Assign Trip to Me</button>
+    </div>
+  </div>
+
+  <!-- Assign result modal -->
+  <div class="modal-overlay" id="assignModal">
+    <div class="modal-box">
+      <div id="modalHeader"></div>
+      <div class="modal-body"><p id="modalMessage"></p></div>
+      <div class="modal-footer"><button class="btn btn-primary" id="modalOkBtn">OK</button></div>
+    </div>
+  </div>
+
+  <script>
+    // === ELEMENTS ===
+    const orgInput = document.getElementById('org');
+    const authBtn = document.getElementById('authBtn');
+    const authSection = document.getElementById('authSection');
+    const statusEl = document.getElementById('status');
+    const filtersScreen = document.getElementById('filtersScreen');
+    const resultsScreen = document.getElementById('resultsScreen');
+    const submitFilters = document.getElementById('submitFilters');
+    const backToFilters = document.getElementById('backToFilters');
+    const emptyBackBtn = document.getElementById('emptyBackBtn');
+    const tripsBody = document.getElementById('tripsBody');
+    const tripCardsMobile = document.getElementById('tripCardsMobile');
+    const tripCount = document.getElementById('tripCount');
+    const chipsBar = document.getElementById('chipsBar');
+    const skeletonLoader = document.getElementById('skeletonLoader');
+    const tripsLayout = document.getElementById('tripsLayout');
+    const emptyState = document.getElementById('emptyState');
+    const detailPanel = document.getElementById('detailPanel');
+    const sheetOverlay = document.getElementById('sheetOverlay');
+    const bottomSheet = document.getElementById('bottomSheet');
+    const assignModal = document.getElementById('assignModal');
+    const themeBtn = document.getElementById('themeBtn');
+    const themePopup = document.getElementById('themePopup');
+
+    let token = null;
+    let allTrips = [];
+    let selectedTrip = null;
+    let currentFilters = {};
+
+    // === URL PARAMS (auto-auth) ===
+    const startupParams = new URLSearchParams(window.location.search);
+    const startupOrg = (startupParams.get('ORG') || startupParams.get('Organization') || '').trim();
+    if (startupOrg) {
+      orgInput.value = startupOrg;
+    }
+
+    // === STATUS ===
+    function status(text, type = 'info') {
+      statusEl.textContent = text;
+      statusEl.className = `status ${type}`;
+    }
+
+    // === API ===
+    async function api(action, data = {}) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      return fetch(`/api/${action}`, { method: 'POST', headers, body: JSON.stringify(data) }).then(r => r.json());
+    }
+
+    // === TRACKING ===
+    async function trackEvent(name, meta = {}) {
+      try { await api('ha-track', { event_name: name, metadata: meta }); } catch {}
+    }
+
+    // === AUTH ===
+    async function authenticate() {
+      const org = orgInput.value.trim();
+      if (!org) { status('ORG required', 'error'); return; }
+      status('Authenticating...');
+      const res = await api('auth', { org });
+      if (!res.success) { status(res.error || 'Auth failed', 'error'); return; }
+      token = res.token;
+      status('Authenticated – loading equipment types...', 'success');
+      authSection.style.display = 'none';
+      filtersScreen.style.display = 'block';
+      trackEvent('app_opened', {});
+      await loadEquipmentTypes();
+      status('Ready – configure filters and search.', 'success');
+    }
+
+    orgInput.addEventListener('keypress', e => { if (e.key === 'Enter') authenticate(); });
+    authBtn.onclick = authenticate;
+
+    async function loadEquipmentTypes() {
+      const org = orgInput.value.trim();
+      const res = await api('equipment_types', { org, token });
+      const sel = document.getElementById('filterEquipment');
+      sel.innerHTML = '<option value="">Any Equipment</option>';
+      if (res.success && res.types) {
+        res.types.sort((a, b) => (a.Description || '').localeCompare(b.Description || ''));
+        res.types.forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t.EquipmentTypeId;
+          opt.textContent = t.Description || t.EquipmentTypeId;
+          sel.appendChild(opt);
+        });
+      }
+    }
+
+    // === RANGE SLIDERS ===
+    function setupDualRange(minId, maxId, fillId, minLabelId, maxLabelId, suffix) {
+      const minEl = document.getElementById(minId);
+      const maxEl = document.getElementById(maxId);
+      const fill = document.getElementById(fillId);
+      const minLabel = document.getElementById(minLabelId);
+      const maxLabel = document.getElementById(maxLabelId);
+
+      function update() {
+        let lo = parseInt(minEl.value), hi = parseInt(maxEl.value);
+        if (lo > hi) { minEl.value = hi; lo = hi; }
+        if (hi < lo) { maxEl.value = lo; hi = lo; }
+        const range = parseInt(minEl.max) - parseInt(minEl.min);
+        const minPct = ((lo - parseInt(minEl.min)) / range) * 100;
+        const maxPct = ((hi - parseInt(minEl.min)) / range) * 100;
+        fill.style.left = minPct + '%';
+        fill.style.width = (maxPct - minPct) + '%';
+        minLabel.textContent = lo + suffix;
+        maxLabel.textContent = hi + suffix;
+      }
+      minEl.addEventListener('input', update);
+      maxEl.addEventListener('input', update);
+      update();
+    }
+
+    setupDualRange('durationMin', 'durationMax', 'durationFill', 'durationMinLabel', 'durationMaxLabel', 'h');
+    setupDualRange('segmentsMin', 'segmentsMax', 'segmentsFill', 'segmentsMinLabel', 'segmentsMaxLabel', '');
+    setupDualRange('stopsMin', 'stopsMax', 'stopsFill', 'stopsMinLabel', 'stopsMaxLabel', '');
+
+    // === SEGMENTED CONTROL ===
+    document.querySelectorAll('.segmented-control .seg-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.parentElement.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    // === GATHER FILTERS ===
+    function gatherFilters() {
+      const f = {};
+      const city = document.getElementById('filterCity').value.trim();
+      const state = document.getElementById('filterState').value.trim().toUpperCase();
+      if (city) f.destinationCity = city;
+      if (state) f.destinationState = state;
+
+      const dMin = parseInt(document.getElementById('durationMin').value);
+      const dMax = parseInt(document.getElementById('durationMax').value);
+      if (dMin > 0 || dMax < 48) f.durationRange = `${dMin}h – ${dMax}h`;
+
+      const segMin = parseInt(document.getElementById('segmentsMin').value);
+      const segMax = parseInt(document.getElementById('segmentsMax').value);
+      if (segMin > 1 || segMax < 20) f.segmentsRange = `${segMin} – ${segMax}`;
+
+      const stMin = parseInt(document.getElementById('stopsMin').value);
+      const stMax = parseInt(document.getElementById('stopsMax').value);
+      if (stMin > 1 || stMax < 20) f.stopsRange = `${stMin} – ${stMax}`;
+
+      const backhaul = document.querySelector('#backhaulControl .seg-btn.active').dataset.value;
+      if (backhaul !== 'any') f.backhaul = backhaul === 'yes' ? 'Has Backhaul' : 'No Backhaul';
+
+      const equip = document.getElementById('filterEquipment');
+      if (equip.value) f.requiredEquipment = equip.options[equip.selectedIndex].textContent;
+
+      const from = document.getElementById('pickupFrom').value;
+      const to = document.getElementById('pickupTo').value;
+      if (from || to) f.pickupRange = `${from || '...'} – ${to || '...'}`;
+
+      return f;
+    }
+
+    // === CHIPS ===
+    const FILTER_LABELS = {
+      destinationCity: 'City',
+      destinationState: 'State',
+      durationRange: 'Duration',
+      segmentsRange: 'Segments',
+      stopsRange: 'Stops',
+      backhaul: 'Backhaul',
+      requiredEquipment: 'Equipment',
+      pickupRange: 'Pickup Range'
+    };
+
+    function renderChips() {
+      chipsBar.innerHTML = '';
+      for (const [key, val] of Object.entries(currentFilters)) {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.innerHTML = `${FILTER_LABELS[key] || key}: ${val} <span class="chip-close" data-key="${key}"><i class="fas fa-times"></i></span>`;
+        chipsBar.appendChild(chip);
+      }
+      chipsBar.querySelectorAll('.chip-close').forEach(el => {
+        el.addEventListener('click', () => {
+          const key = el.dataset.key;
+          delete currentFilters[key];
+          clearFilterField(key);
+          renderChips();
+          runSearch();
+        });
+      });
+    }
+
+    function clearFilterField(key) {
+      switch (key) {
+        case 'destinationCity': document.getElementById('filterCity').value = ''; break;
+        case 'destinationState': document.getElementById('filterState').value = ''; break;
+        case 'durationRange':
+          document.getElementById('durationMin').value = 0;
+          document.getElementById('durationMax').value = 48;
+          document.getElementById('durationMin').dispatchEvent(new Event('input'));
+          break;
+        case 'segmentsRange':
+          document.getElementById('segmentsMin').value = 1;
+          document.getElementById('segmentsMax').value = 20;
+          document.getElementById('segmentsMin').dispatchEvent(new Event('input'));
+          break;
+        case 'stopsRange':
+          document.getElementById('stopsMin').value = 1;
+          document.getElementById('stopsMax').value = 20;
+          document.getElementById('stopsMin').dispatchEvent(new Event('input'));
+          break;
+        case 'backhaul':
+          document.querySelectorAll('#backhaulControl .seg-btn').forEach(b => b.classList.remove('active'));
+          document.querySelector('#backhaulControl .seg-btn[data-value="any"]').classList.add('active');
+          break;
+        case 'requiredEquipment': document.getElementById('filterEquipment').value = ''; break;
+        case 'pickupRange':
+          document.getElementById('pickupFrom').value = '';
+          document.getElementById('pickupTo').value = '';
+          break;
+      }
+    }
+
+    // === SEARCH ===
+    submitFilters.addEventListener('click', () => {
+      currentFilters = gatherFilters();
+      showResults();
+      runSearch();
+    });
+
+    async function runSearch() {
+      skeletonLoader.style.display = 'block';
+      tripsLayout.style.display = 'none';
+      emptyState.style.display = 'none';
+      selectedTrip = null;
+      detailPanel.classList.remove('visible');
+
+      const org = orgInput.value.trim();
+      const res = await api('search_trips', { org, token, filters: currentFilters });
+      skeletonLoader.style.display = 'none';
+
+      if (res.success && res.trips && res.trips.length > 0) {
+        allTrips = res.trips;
+        tripCount.textContent = `${res.count} trips found`;
+        renderTripsTable();
+        renderTripCards();
+        tripsLayout.style.display = 'flex';
+        trackEvent('search_trips', { org, filters: currentFilters, count: res.count });
+      } else {
+        allTrips = [];
+        tripCount.textContent = '0 trips found';
+        emptyState.style.display = 'block';
+      }
+      renderChips();
+    }
+
+    function showResults() {
+      filtersScreen.style.display = 'none';
+      resultsScreen.style.display = 'block';
+    }
+
+    backToFilters.addEventListener('click', () => {
+      resultsScreen.style.display = 'none';
+      filtersScreen.style.display = 'block';
+    });
+    emptyBackBtn.addEventListener('click', () => {
+      resultsScreen.style.display = 'none';
+      filtersScreen.style.display = 'block';
+    });
+
+    // === RENDER TABLE (desktop) ===
+    function renderTripsTable() {
+      tripsBody.innerHTML = allTrips.map((t, i) => `
+        <tr data-idx="${i}">
+          <td style="font-weight:600;color:var(--primary-color)">${t.TripId}</td>
+          <td>${t.Status}</td>
+          <td>${t.Origin}</td>
+          <td>${t.Destination}</td>
+          <td>${t.PickupWindow}</td>
+          <td>${t.DeliveryWindow}</td>
+          <td>${t.TotalDuration}</td>
+          <td>${t.TotalStops}</td>
+          <td>${t.TotalSegments}</td>
+          <td>${t.Backhaul}</td>
+          <td>${t.RequiredEquipment}</td>
+          <td>${t.CurrentDriver}</td>
+        </tr>
+      `).join('');
+
+      tripsBody.querySelectorAll('tr').forEach(row => {
+        row.addEventListener('click', () => {
+          tripsBody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+          row.classList.add('selected');
+          const trip = allTrips[parseInt(row.dataset.idx)];
+          showDetailPanel(trip);
+        });
+      });
+    }
+
+    // === RENDER CARDS (mobile) ===
+    function renderTripCards() {
+      tripCardsMobile.innerHTML = allTrips.map((t, i) => `
+        <div class="trip-card-item" data-idx="${i}">
+          <div class="trip-card-top">
+            <span class="trip-card-id">${t.TripId}</span>
+            <span class="trip-card-status">${t.Status}</span>
+          </div>
+          <div class="trip-card-route">${t.Origin} → ${t.Destination}</div>
+          <div class="trip-card-meta">
+            <span><i class="fas fa-clock"></i> ${t.TotalDuration}</span>
+            <span><i class="fas fa-map-marker-alt"></i> ${t.TotalStops} stops</span>
+            <span>${t.RequiredEquipment}</span>
+          </div>
+        </div>
+      `).join('');
+
+      tripCardsMobile.querySelectorAll('.trip-card-item').forEach(card => {
+        card.addEventListener('click', () => {
+          tripCardsMobile.querySelectorAll('.trip-card-item').forEach(c => c.classList.remove('selected'));
+          card.classList.add('selected');
+          const trip = allTrips[parseInt(card.dataset.idx)];
+          showBottomSheet(trip);
+        });
+      });
+    }
+
+    // === DETAIL PANEL (desktop) ===
+    function showDetailPanel(trip) {
+      selectedTrip = trip;
+      document.getElementById('detailTripId').textContent = trip.TripId + ' Overview';
+      document.getElementById('detailCustomer').textContent = trip.Overview.Customer;
+      document.getElementById('detailWeight').textContent = trip.Overview.Weight;
+      document.getElementById('detailVolume').textContent = trip.Overview.Volume;
+      document.getElementById('detailShipments').innerHTML = trip.Shipments.map(s =>
+        `<tr><td>${s.ShipmentId}</td><td>${s.Volume}</td></tr>`
+      ).join('');
+      document.getElementById('detailDriverName').textContent = trip.DriverAssignment.Name;
+      document.getElementById('detailDriverRole').textContent = `(${trip.DriverAssignment.Role})`;
+      const assignBtn = document.getElementById('assignBtn');
+      assignBtn.disabled = trip.CurrentDriver !== '-';
+      assignBtn.textContent = trip.CurrentDriver !== '-' ? 'Already Assigned' : 'Assign Trip to Me';
+      detailPanel.classList.add('visible');
+    }
+
+    document.getElementById('detailClose').addEventListener('click', () => {
+      detailPanel.classList.remove('visible');
+      tripsBody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+      selectedTrip = null;
+    });
+
+    // === BOTTOM SHEET (mobile) ===
+    function showBottomSheet(trip) {
+      selectedTrip = trip;
+      document.getElementById('sheetTripId').textContent = trip.TripId + ' Overview';
+      document.getElementById('sheetCustomer').textContent = trip.Overview.Customer;
+      document.getElementById('sheetWeight').textContent = trip.Overview.Weight;
+      document.getElementById('sheetVolume').textContent = trip.Overview.Volume;
+      document.getElementById('sheetShipments').innerHTML = trip.Shipments.map(s =>
+        `<tr><td>${s.ShipmentId}</td><td>${s.Volume}</td></tr>`
+      ).join('');
+      document.getElementById('sheetDriverName').textContent = trip.DriverAssignment.Name;
+      document.getElementById('sheetDriverRole').textContent = `(${trip.DriverAssignment.Role})`;
+      const btn = document.getElementById('assignBtnMobile');
+      btn.disabled = trip.CurrentDriver !== '-';
+      btn.textContent = trip.CurrentDriver !== '-' ? 'Already Assigned' : 'Assign Trip to Me';
+      sheetOverlay.classList.add('visible');
+      bottomSheet.classList.add('visible');
+    }
+
+    function closeBottomSheet() {
+      sheetOverlay.classList.remove('visible');
+      bottomSheet.classList.remove('visible');
+      tripCardsMobile.querySelectorAll('.trip-card-item').forEach(c => c.classList.remove('selected'));
+      selectedTrip = null;
+    }
+    document.getElementById('sheetClose').addEventListener('click', closeBottomSheet);
+    sheetOverlay.addEventListener('click', closeBottomSheet);
+
+    // === ASSIGN TRIP ===
+    async function assignTrip() {
+      if (!selectedTrip) return;
+      const org = orgInput.value.trim();
+      const tripId = selectedTrip.TripId;
+      const res = await api('assign_trip', { org, token, trip_id: tripId });
+      closeBottomSheet();
+
+      const header = document.getElementById('modalHeader');
+      const msg = document.getElementById('modalMessage');
+      if (res.success) {
+        header.className = 'modal-header-success';
+        header.innerHTML = '<i class="fas fa-check-circle"></i><h5>Trip Assigned!</h5>';
+        msg.textContent = `${tripId} has been assigned to you successfully.`;
+      } else {
+        header.className = 'modal-header-error';
+        header.innerHTML = '<i class="fas fa-exclamation-circle"></i><h5>Assignment Failed</h5>';
+        msg.textContent = res.error || 'An unexpected error occurred.';
+      }
+      assignModal.classList.add('visible');
+    }
+
+    document.getElementById('assignBtn').addEventListener('click', assignTrip);
+    document.getElementById('assignBtnMobile').addEventListener('click', assignTrip);
+    document.getElementById('modalOkBtn').addEventListener('click', () => {
+      assignModal.classList.remove('visible');
+      runSearch();
+    });
+
+    // === THEMING ===
+    const THEMES = {
+      light: {
+        '--bg-color': '#ffffff', '--text-color': '#1f2933', '--text-muted': '#616e7c',
+        '--card-bg': '#f8fafc', '--border-color': '#d9e2ec', '--input-bg': '#ffffff',
+        '--input-border': '#cbd5e0', '--input-focus-bg': '#ffffff', '--input-focus-border': '#5a67d8',
+        '--input-focus-shadow': 'rgba(90,103,216,0.25)', '--primary-color': '#5a67d8',
+        '--primary-hover': '#4c51bf', '--success-color': '#28a745', '--danger-color': '#dc3545',
+        '--header-bg': '#d9e2ec', '--header-text': '#1f2933', '--chip-bg': '#e2e8f0',
+        '--chip-text': '#2d3748', '--row-hover': '#edf2f7', '--row-selected': '#ebf4ff',
+        '--detail-bg': '#f7fafc', '--skeleton-base': '#e2e8f0', '--skeleton-shine': '#f8fafc'
+      },
+      dark: {
+        '--bg-color': '#1a1d23', '--text-color': '#e2e8f0', '--text-muted': '#a0aec0',
+        '--card-bg': '#2d3748', '--border-color': '#4a5568', '--input-bg': '#2d3748',
+        '--input-border': '#4a5568', '--input-focus-bg': '#2d3748', '--input-focus-border': '#63b3ed',
+        '--input-focus-shadow': 'rgba(99,179,237,0.25)', '--primary-color': '#63b3ed',
+        '--primary-hover': '#4299e1', '--success-color': '#48bb78', '--danger-color': '#fc8181',
+        '--header-bg': '#2d3748', '--header-text': '#e2e8f0', '--chip-bg': '#4a5568',
+        '--chip-text': '#e2e8f0', '--row-hover': '#374151', '--row-selected': '#2b4c7e',
+        '--detail-bg': '#2d3748', '--skeleton-base': '#374151', '--skeleton-shine': '#4a5568'
+      },
+      manhattan: {
+        '--bg-color': '#2d2f3b', '--text-color': '#e0e0e0', '--text-muted': '#b0b0b0',
+        '--card-bg': '#484e5e', '--border-color': '#5a6172', '--input-bg': '#3a3f4e',
+        '--input-border': '#5a6172', '--input-focus-bg': '#3a3f4e', '--input-focus-border': '#339af0',
+        '--input-focus-shadow': 'rgba(51,154,240,0.25)', '--primary-color': '#339af0',
+        '--primary-hover': '#228be6', '--success-color': '#51cf66', '--danger-color': '#ff6b6b',
+        '--header-bg': '#3a3f4e', '--header-text': '#e0e0e0', '--chip-bg': '#5a6172',
+        '--chip-text': '#e0e0e0', '--row-hover': '#3a3f4e', '--row-selected': '#2b4c7e',
+        '--detail-bg': '#3a3f4e', '--skeleton-base': '#3a3f4e', '--skeleton-shine': '#5a6172'
+      }
+    };
+
+    function applyTheme(name) {
+      const vars = THEMES[name];
+      if (!vars) return;
+      for (const [prop, val] of Object.entries(vars)) {
+        document.documentElement.style.setProperty(prop, val);
+      }
+      document.querySelectorAll('.theme-option').forEach(o => {
+        o.classList.toggle('active', o.dataset.theme === name);
+      });
+      localStorage.setItem('dispatch_theme', name);
+    }
+
+    themeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      themePopup.classList.toggle('visible');
+    });
+    document.addEventListener('click', () => themePopup.classList.remove('visible'));
+    themePopup.addEventListener('click', e => e.stopPropagation());
+    document.querySelectorAll('.theme-option').forEach(opt => {
+      opt.addEventListener('click', () => applyTheme(opt.dataset.theme));
+    });
+
+    const savedTheme = localStorage.getItem('dispatch_theme') || 'light';
+    applyTheme(savedTheme);
+
+    // === INIT ===
+    window.addEventListener('load', async () => {
+      if (startupOrg) {
+        await authenticate();
+      } else {
+        orgInput.focus();
+      }
+    });
+  </script>
+  <script>
+    (function() {
+      const s = document.createElement('script');
+      s.src = '/_vercel/insights/script.js';
+      s.defer = true;
+      s.onerror = function() { console.warn('Vercel Analytics failed to load.'); };
+      document.head.appendChild(s);
+    })();
+  </script>
+</body>
+</html>
