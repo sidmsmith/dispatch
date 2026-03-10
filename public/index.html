@@ -16,10 +16,10 @@
       --input-bg: #ffffff;
       --input-border: #cbd5e0;
       --input-focus-bg: #ffffff;
-      --input-focus-border: #5a67d8;
-      --input-focus-shadow: rgba(90,103,216,0.25);
-      --primary-color: #5a67d8;
-      --primary-hover: #4c51bf;
+      --input-focus-border: #339af0;
+      --input-focus-shadow: rgba(51,154,240,0.25);
+      --primary-color: #339af0;
+      --primary-hover: #228be6;
       --success-color: #28a745;
       --danger-color: #dc3545;
       --header-bg: #d9e2ec;
@@ -1224,9 +1224,9 @@
       light: {
         '--bg-color': '#ffffff', '--text-color': '#1f2933', '--text-muted': '#616e7c',
         '--card-bg': '#f8fafc', '--border-color': '#d9e2ec', '--input-bg': '#ffffff',
-        '--input-border': '#cbd5e0', '--input-focus-bg': '#ffffff', '--input-focus-border': '#5a67d8',
-        '--input-focus-shadow': 'rgba(90,103,216,0.25)', '--primary-color': '#5a67d8',
-        '--primary-hover': '#4c51bf', '--success-color': '#28a745', '--danger-color': '#dc3545',
+        '--input-border': '#cbd5e0', '--input-focus-bg': '#ffffff', '--input-focus-border': '#339af0',
+        '--input-focus-shadow': 'rgba(51,154,240,0.25)', '--primary-color': '#339af0',
+        '--primary-hover': '#228be6', '--success-color': '#28a745', '--danger-color': '#dc3545',
         '--header-bg': '#d9e2ec', '--header-text': '#1f2933', '--chip-bg': '#e2e8f0',
         '--chip-text': '#2d3748', '--row-hover': '#edf2f7', '--row-selected': '#ebf4ff',
         '--detail-bg': '#f7fafc', '--skeleton-base': '#e2e8f0', '--skeleton-shine': '#f8fafc'
@@ -1280,6 +1280,11 @@
 
     // === INIT ===
     window.addEventListener('load', async () => {
+      const themeParam = startupParams.get('Theme') || startupParams.get('theme');
+      if (themeParam && themeParam.toUpperCase() === 'N') {
+        themeBtn.style.display = 'none';
+      }
+
       if (startupOrg) {
         await authenticate();
       } else {
