@@ -1319,11 +1319,21 @@
 
     submitFilters.addEventListener('click', triggerSearch);
 
+    function validateDateRange() {
+      const from = document.getElementById('pickupFrom').value;
+      const to = document.getElementById('pickupTo').value;
+      const invalid = from && to && new Date(to) <= new Date(from);
+      submitFilters.disabled = invalid;
+      submitFilters.style.opacity = invalid ? '0.5' : '';
+    }
+    document.getElementById('pickupFrom').addEventListener('input', validateDateRange);
+    document.getElementById('pickupTo').addEventListener('input', validateDateRange);
+
     document.querySelectorAll('#filtersScreen input, #filtersScreen select').forEach(el => {
       el.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
-          triggerSearch();
+          if (!submitFilters.disabled) triggerSearch();
         }
       });
     });
