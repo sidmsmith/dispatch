@@ -1094,7 +1094,10 @@
       }
 
       const backhaul = document.querySelector('#backhaulControl .seg-btn.active').dataset.value;
-      if (backhaul !== 'any') f.backhaul = backhaul === 'yes' ? 'Has Backhaul' : 'No Backhaul';
+      if (backhaul !== 'any') {
+        f.backhaul = backhaul === 'yes' ? 'Has Backhaul' : 'No Backhaul';
+        f.backhaulFilter = backhaul;
+      }
 
       const equip = document.getElementById('filterEquipment');
       if (equip.value) {
@@ -1125,7 +1128,7 @@
       pickupRange: 'Pickup Range'
     };
 
-    const HIDDEN_CHIP_KEYS = new Set(['pickupFrom', 'pickupTo', 'durationMin', 'durationMax', 'segmentsMin', 'segmentsMax', 'stopsMin', 'stopsMax', 'equipmentTypeId']);
+    const HIDDEN_CHIP_KEYS = new Set(['pickupFrom', 'pickupTo', 'durationMin', 'durationMax', 'segmentsMin', 'segmentsMax', 'stopsMin', 'stopsMax', 'backhaulFilter', 'equipmentTypeId']);
 
     function renderChips() {
       chipsBar.innerHTML = '';
@@ -1155,6 +1158,9 @@
           if (key === 'stopsRange') {
             delete currentFilters['stopsMin'];
             delete currentFilters['stopsMax'];
+          }
+          if (key === 'backhaul') {
+            delete currentFilters['backhaulFilter'];
           }
           if (key === 'requiredEquipment') {
             delete currentFilters['equipmentTypeId'];

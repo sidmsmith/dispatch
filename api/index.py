@@ -242,6 +242,75 @@ def format_location(segment, direction, facility_map):
     return display
 
 
+HOME_FACILITY_OVERRIDE = os.getenv("MATM_HOME_FACILITY_IDS", "")
+
+
+def resolve_home_facility_ids(headers):
+    """Resolve home (terminal) facility IDs.
+    1) Check env override MATM_HOME_FACILITY_IDS (comma-separated).
+    2) Otherwise query Facility Master for FacilityTypeTerminal = true."""
+    if HOME_FACILITY_OVERRIDE.strip():
+        ids = [s.strip() for s in HOME_FACILITY_OVERRIDE.split(",") if s.strip()]
+        if ids:
+            print(f"[HomeFacilities] Using env override: {ids}")
+            return set(ids)
+
+    url = f"https://{API_HOST}/facility/api/facility/facility/search"
+    payload = {
+        "Query": "FacilityTypeTerminal = true",
+        "Template": {
+            "FacilityId": None,
+            "Description": None,
+            "FacilityTypeTerminal": None,
+            "FacilityAddress": {
+                "City": None,
+                "State": None,
+                "PostalCode": None,
+                "Country": None
+            }
+        },
+        "Size": 1000
+    }
+    try:
+        print("[HomeFacilities] Querying FacilityTypeTerminal = true")
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+        if r.ok:
+            data = r.json().get("data", []) or []
+            ids = {f.get("FacilityId") for f in data if f.get("FacilityTypeTerminal") and f.get("FacilityId")}
+            print(f"[HomeFacilities] Found {len(ids)} terminal facilities")
+            return ids
+        else:
+            print(f"[HomeFacilities] HTTP {r.status_code}: {r.text[:300]}")
+    except Exception as e:
+        print(f"[HomeFacilities] Exception: {e}")
+    return set()
+
+
+def analyze_trip_backhaul(segments_sorted, home_facility_ids):
+    """Determine if a trip has a backhaul based on segment flow relative to home facilities.
+    Outbound = home → non-home. Backhaul = non-home → home AFTER first outbound."""
+    outbound_seqs = []
+    inbound_candidates = []
+
+    for seg in segments_sorted:
+        origin_fid = seg.get("OriginFacilityId")
+        dest_fid = seg.get("DestinationFacilityId")
+        origin_home = origin_fid in home_facility_ids if origin_fid else False
+        dest_home = dest_fid in home_facility_ids if dest_fid else False
+        seq = seg.get("Sequence", 0)
+
+        if origin_home and not dest_home:
+            outbound_seqs.append(seq)
+        elif not origin_home and dest_home:
+            inbound_candidates.append(seq)
+
+    if not outbound_seqs or not inbound_candidates:
+        return False
+
+    first_outbound_seq = outbound_seqs[0]
+    return any(s > first_outbound_seq for s in inbound_candidates)
+
+
 def build_stop_key(facility_id, lat, lon):
     """Build a stable stop key from facility or lat/lon for de-duplication."""
     if facility_id:
@@ -279,7 +348,7 @@ def compute_trip_stops(segments_sorted):
     return len(stops), stops
 
 
-def transform_trip(raw_trip, facility_map=None):
+def transform_trip(raw_trip, facility_map=None, home_facility_ids=None):
     """Transform a raw Manhattan API trip into the frontend display format"""
     segments = raw_trip.get("TripSegment", []) or []
     segments_sorted = sorted(segments, key=lambda s: s.get("Sequence", 0))
@@ -355,7 +424,7 @@ def transform_trip(raw_trip, facility_map=None):
         "TotalStops": stop_count,
         "TotalSegments": len(segments_sorted),
         "TotalDistance": f"{total_distance:.1f} mi",
-        "Backhaul": "Yes" if len(segments_sorted) > 2 else "No",
+        "Backhaul": "Yes" if (home_facility_ids and analyze_trip_backhaul(segments_sorted, home_facility_ids)) else "No",
         "CurrentDriver": driver,
         "Carrier": raw_trip.get("AssignedCarrierId", "-"),
         "Tractor": raw_trip.get("AssignedTractorAssetId", "-"),
@@ -507,7 +576,9 @@ def search_trips():
             print(f"[SearchTrips] Resolving {len(all_facility_ids)} unique facilities")
             facility_map = resolve_facility_locations(all_facility_ids, headers)
 
-            trips = [transform_trip(t, facility_map) for t in raw_trips]
+            home_fids = resolve_home_facility_ids(headers)
+
+            trips = [transform_trip(t, facility_map, home_fids) for t in raw_trips]
 
             duration_min = filters.get("durationMin")
             duration_max = filters.get("durationMax")
@@ -529,6 +600,12 @@ def search_trips():
                 st_lo = int(stops_min) if stops_min is not None else 1
                 st_hi = int(stops_max) if stops_max is not None else 9999
                 trips = [t for t in trips if st_lo <= t.get("TotalStops", 0) <= st_hi]
+
+            backhaul_filter = filters.get("backhaulFilter")
+            if backhaul_filter == "yes":
+                trips = [t for t in trips if t.get("Backhaul") == "Yes"]
+            elif backhaul_filter == "no":
+                trips = [t for t in trips if t.get("Backhaul") == "No"]
 
             dest_city_filter = (filters.get("destinationCity") or "").strip().lower()
             if dest_city_filter:
