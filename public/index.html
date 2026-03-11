@@ -883,6 +883,9 @@
       </div>
       <div class="text-center mt-3">
         <button class="btn btn-primary px-5 py-2" id="submitFilters"><i class="fas fa-search"></i> Search Trips</button>
+        <div class="mt-2">
+          <a href="#" id="resetFiltersBtn" style="font-size:0.85rem;color:var(--text-muted);text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'"><i class="fas fa-undo-alt" style="font-size:0.75rem;"></i> Reset Filters</a>
+        </div>
       </div>
     </div>
 
@@ -1193,6 +1196,105 @@
         btn.parentElement.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
       });
+    });
+
+    // === FILTER PERSISTENCE ===
+    const FILTER_STORAGE_KEY = 'dispatch_saved_filters';
+
+    function saveFiltersToStorage() {
+      const data = {
+        city: document.getElementById('filterCity').value,
+        state: document.getElementById('filterState').value,
+        durationMin: document.getElementById('durationMin').value,
+        durationMax: document.getElementById('durationMax').value,
+        segmentsMin: document.getElementById('segmentsMin').value,
+        segmentsMax: document.getElementById('segmentsMax').value,
+        stopsMin: document.getElementById('stopsMin').value,
+        stopsMax: document.getElementById('stopsMax').value,
+        backhaul: document.querySelector('#backhaulControl .seg-btn.active')?.dataset.value || 'any',
+        equipment: document.getElementById('filterEquipment').value,
+        pickupFrom: document.getElementById('pickupFrom').value,
+        pickupTo: document.getElementById('pickupTo').value,
+        todayChecked: document.getElementById('todayCheck').checked
+      };
+      localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function restoreFiltersFromStorage() {
+      const raw = localStorage.getItem(FILTER_STORAGE_KEY);
+      if (!raw) return;
+      try {
+        const d = JSON.parse(raw);
+        if (d.city) document.getElementById('filterCity').value = d.city;
+        if (d.state) document.getElementById('filterState').value = d.state;
+        if (d.durationMin != null) document.getElementById('durationMin').value = d.durationMin;
+        if (d.durationMax != null) document.getElementById('durationMax').value = d.durationMax;
+        if (d.segmentsMin != null) document.getElementById('segmentsMin').value = d.segmentsMin;
+        if (d.segmentsMax != null) document.getElementById('segmentsMax').value = d.segmentsMax;
+        if (d.stopsMin != null) document.getElementById('stopsMin').value = d.stopsMin;
+        if (d.stopsMax != null) document.getElementById('stopsMax').value = d.stopsMax;
+        if (d.backhaul) {
+          document.querySelectorAll('#backhaulControl .seg-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.value === d.backhaul);
+          });
+        }
+        if (d.equipment) document.getElementById('filterEquipment').value = d.equipment;
+        if (d.todayChecked) {
+          document.getElementById('todayCheck').checked = true;
+          const today = new Date();
+          const yyyy = today.getFullYear();
+          const mm = String(today.getMonth() + 1).padStart(2, '0');
+          const dd = String(today.getDate()).padStart(2, '0');
+          document.getElementById('pickupFrom').value = `${yyyy}-${mm}-${dd}T00:00`;
+          document.getElementById('pickupTo').value = `${yyyy}-${mm}-${dd}T23:59`;
+        } else {
+          if (d.pickupFrom) document.getElementById('pickupFrom').value = d.pickupFrom;
+          if (d.pickupTo) document.getElementById('pickupTo').value = d.pickupTo;
+        }
+        // Re-render slider fills
+        document.getElementById('durationMin').dispatchEvent(new Event('input'));
+        document.getElementById('segmentsMin').dispatchEvent(new Event('input'));
+        document.getElementById('stopsMin').dispatchEvent(new Event('input'));
+        validateDateRange();
+      } catch (e) { /* ignore corrupt data */ }
+    }
+
+    function resetAllFilters() {
+      document.getElementById('filterCity').value = '';
+      document.getElementById('filterState').value = '';
+      document.getElementById('durationMin').value = 0;
+      document.getElementById('durationMax').value = 60;
+      document.getElementById('segmentsMin').value = 1;
+      document.getElementById('segmentsMax').value = 7;
+      document.getElementById('stopsMin').value = 1;
+      document.getElementById('stopsMax').value = 30;
+      document.querySelectorAll('#backhaulControl .seg-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.value === 'any');
+      });
+      document.getElementById('filterEquipment').value = '';
+      document.getElementById('pickupFrom').value = '';
+      document.getElementById('pickupTo').value = '';
+      document.getElementById('todayCheck').checked = false;
+      // Re-render slider fills
+      document.getElementById('durationMin').dispatchEvent(new Event('input'));
+      document.getElementById('segmentsMin').dispatchEvent(new Event('input'));
+      document.getElementById('stopsMin').dispatchEvent(new Event('input'));
+      validateDateRange();
+      localStorage.removeItem(FILTER_STORAGE_KEY);
+    }
+
+    document.getElementById('resetFiltersBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      resetAllFilters();
+    });
+
+    // Auto-save on any filter change
+    document.querySelectorAll('#filtersScreen input, #filtersScreen select').forEach(el => {
+      el.addEventListener('input', saveFiltersToStorage);
+      el.addEventListener('change', saveFiltersToStorage);
+    });
+    document.querySelectorAll('#backhaulControl .seg-btn').forEach(btn => {
+      btn.addEventListener('click', () => setTimeout(saveFiltersToStorage, 0));
     });
 
     // === GATHER FILTERS ===
@@ -1698,6 +1800,8 @@
 
     const savedTheme = localStorage.getItem('dispatch_theme') || 'light';
     applyTheme(savedTheme);
+
+    restoreFiltersFromStorage();
 
     // === INIT ===
     window.addEventListener('load', async () => {
