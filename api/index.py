@@ -286,6 +286,54 @@ def resolve_home_facility_ids(headers):
     return set()
 
 
+def resolve_driver_names(driver_codes, headers):
+    """Batch-resolve driver codes to display names via a single driver search API call.
+    Returns dict of {DriverCode: 'First Last'} for each resolved driver."""
+    if not driver_codes:
+        return {}
+
+    codes_list = list(driver_codes)
+    in_clause = ",".join(f"'{c}'" for c in codes_list)
+
+    url = f"https://{API_HOST}/asset-manager/api/asset-manager/driver/search"
+    payload = {
+        "Query": f"DriverCode in ({in_clause})",
+        "Template": {
+            "DriverId": None,
+            "DriverCode": None,
+            "DriverDetail": {
+                "DriverFirstName": None,
+                "DriverLastName": None
+            }
+        },
+        "Size": 9999
+    }
+
+    driver_map = {}
+    try:
+        print(f"[DriverNameLookup] Resolving {len(codes_list)} driver names")
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+        if r.ok:
+            data = r.json().get("data", []) or []
+            for d in data:
+                code = d.get("DriverCode")
+                if not code:
+                    continue
+                detail = d.get("DriverDetail") or {}
+                first = (detail.get("DriverFirstName") or "").strip()
+                last = (detail.get("DriverLastName") or "").strip()
+                full_name = " ".join(p for p in [first, last] if p)
+                if full_name:
+                    driver_map[code] = full_name
+        else:
+            print(f"[DriverNameLookup] HTTP {r.status_code}: {r.text[:300]}")
+    except Exception as e:
+        print(f"[DriverNameLookup] Exception: {e}")
+
+    print(f"[DriverNameLookup] Resolved {len(driver_map)}/{len(codes_list)} driver names")
+    return driver_map
+
+
 def analyze_trip_backhaul(segments_sorted, home_facility_ids):
     """Determine if a trip has a backhaul based on segment flow relative to home facilities.
     Outbound = home → non-home. Backhaul = non-home → home AFTER first outbound."""
@@ -361,7 +409,7 @@ def derive_trip_terminal(segments_sorted):
     return None
 
 
-def transform_trip(raw_trip, facility_map=None, home_facility_ids=None):
+def transform_trip(raw_trip, facility_map=None, home_facility_ids=None, driver_name_map=None):
     """Transform a raw Manhattan API trip into the frontend display format"""
     segments = raw_trip.get("TripSegment", []) or []
     segments_sorted = sorted(segments, key=lambda s: s.get("Sequence", 0))
@@ -407,7 +455,10 @@ def transform_trip(raw_trip, facility_map=None, home_facility_ids=None):
 
     stop_count, _ = compute_trip_stops(segments_sorted)
 
-    driver = raw_trip.get("AssignedDriverId") or "-"
+    driver_code = raw_trip.get("AssignedDriverId") or "-"
+    dname_map = driver_name_map or {}
+    driver_name = dname_map.get(driver_code, "")
+    driver_display = f"{driver_code}: {driver_name}" if driver_name else driver_code
 
     duration_hours = None
     if pickup_start and delivery_end:
@@ -438,7 +489,7 @@ def transform_trip(raw_trip, facility_map=None, home_facility_ids=None):
         "TotalSegments": len(segments_sorted),
         "TotalDistance": f"{total_distance:.1f} mi",
         "Backhaul": "Yes" if (home_facility_ids and analyze_trip_backhaul(segments_sorted, home_facility_ids)) else "No",
-        "CurrentDriver": driver,
+        "CurrentDriver": driver_display,
         "Carrier": raw_trip.get("AssignedCarrierId", "-"),
         "Tractor": raw_trip.get("AssignedTractorAssetId", "-"),
         "Overview": {
@@ -448,8 +499,8 @@ def transform_trip(raw_trip, facility_map=None, home_facility_ids=None):
         },
         "Shipments": shipments,
         "DriverAssignment": {
-            "Name": driver,
-            "Role": "Assigned Driver" if driver != "-" else "Unassigned"
+            "Name": driver_display,
+            "Role": "Assigned Driver" if driver_code != "-" else "Unassigned"
         },
         "Segments": [{
             "SegmentId": s.get("SegmentId", "-"),
@@ -597,12 +648,19 @@ def search_trips():
                     if dfid and not (daddr and isinstance(daddr, dict) and daddr.get("City")):
                         all_facility_ids.add(dfid)
 
-            print(f"[SearchTrips] Resolving {len(all_facility_ids)} unique facilities")
+            all_driver_codes = set()
+            for trip in raw_trips:
+                dc = trip.get("AssignedDriverId")
+                if dc:
+                    all_driver_codes.add(dc)
+
+            print(f"[SearchTrips] Resolving {len(all_facility_ids)} unique facilities, {len(all_driver_codes)} drivers")
             facility_map = resolve_facility_locations(all_facility_ids, headers)
+            driver_name_map = resolve_driver_names(all_driver_codes, headers)
 
             home_fids = resolve_home_facility_ids(headers)
 
-            trips = [transform_trip(t, facility_map, home_fids) for t in raw_trips]
+            trips = [transform_trip(t, facility_map, home_fids, driver_name_map) for t in raw_trips]
 
             duration_min = filters.get("durationMin")
             duration_max = filters.get("durationMax")
