@@ -945,6 +945,7 @@
     function status(text, type = 'info') {
       statusEl.textContent = text;
       statusEl.className = `status ${type}`;
+      statusEl.style.display = text ? 'block' : 'none';
     }
 
     // === API ===
@@ -973,7 +974,7 @@
       filtersScreen.style.flexDirection = 'column';
       trackEvent('app_opened', {});
       await loadEquipmentTypes();
-      status('Ready – configure filters and search.', 'success');
+      statusEl.style.display = 'none';
     }
 
     orgInput.addEventListener('keypress', e => { if (e.key === 'Enter') authenticate(); });
