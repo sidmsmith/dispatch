@@ -98,6 +98,11 @@
     }
     .theme-selector-btn:hover { transform: rotate(90deg); }
 
+    .title-mobile { display: none; }
+    @media (max-width: 992px) {
+      .title-desktop { display: none; }
+      .title-mobile { display: inline; }
+    }
     .header-title {
       position: relative;
       text-align: center;
@@ -791,7 +796,7 @@
       <img src="/manhattan-logo.png" alt="Manhattan Associates" class="app-logo" onerror="this.style.display='none'" />
     </div>
     <h4 class="header-title mb-3">
-      <span class="header-title-text"><i class="fas fa-route"></i> Dispatch</span>
+      <span class="header-title-text"><i class="fas fa-route"></i> <span class="title-desktop">Dispatch Kiosk</span><span class="title-mobile">Dispatch Mobile</span></span>
       <span class="app-version">v1.0.1</span>
     </h4>
 
@@ -1329,6 +1334,14 @@
     }
 
     restoreColumnConfig();
+
+    // === DYNAMIC TITLE ===
+    function updatePageTitle() {
+      const isMobile = window.matchMedia('(max-width: 992px)').matches;
+      document.title = isMobile ? 'Dispatch Mobile v1.0.1' : 'Dispatch Kiosk v1.0.1';
+    }
+    updatePageTitle();
+    window.matchMedia('(max-width: 992px)').addEventListener('change', updatePageTitle);
 
     // === URL PARAMS (auto-auth) ===
     const startupParams = new URLSearchParams(window.location.search);
