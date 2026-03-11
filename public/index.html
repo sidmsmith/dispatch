@@ -37,7 +37,10 @@
       height: 100%;
       overflow: hidden;
       overscroll-behavior-x: none;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
     }
+    html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
     body {
       background: var(--bg-color);
       color: var(--text-color);
@@ -625,6 +628,8 @@
 
     /* Responsive breakpoints */
     @media (max-width: 992px) {
+      * { -ms-overflow-style: none; scrollbar-width: none; }
+      *::-webkit-scrollbar { display: none; }
       .card { overflow: hidden; }
       .detail-panel { display: none !important; }
       .trips-layout { display: none !important; }
