@@ -143,6 +143,7 @@
 
     #filtersScreen {
       overflow-y: auto;
+      max-width: 900px;
       flex: 1;
       min-height: 0;
     }
@@ -150,6 +151,7 @@
       flex: 1;
       min-height: 0;
       flex-direction: column;
+      width: 100%;
     }
 
     /* Filter form grid */
@@ -550,7 +552,7 @@
       0% { background-position: 200% 0; }
       100% { background-position: -200% 0; }
     }
-    .skeleton-row { height: 44px; margin-bottom: 4px; }
+    .skeleton-row { height: 44px; margin-bottom: 4px; width: 100%; }
 
     /* Empty state */
     .empty-state {
@@ -603,7 +605,7 @@
   </style>
 </head>
 <body>
-  <div class="card" id="mainCard" style="max-width: 1200px; margin: 0 auto;">
+  <div class="card" id="mainCard" style="width: 95vw; max-width: 95vw; margin: 0 auto;">
     <button class="theme-selector-btn" id="themeBtn" title="Select Theme"><i class="fas fa-cog"></i></button>
     <div class="theme-popup" id="themePopup">
       <h6 style="padding: 0.25rem 0.75rem; margin: 0 0 0.25rem; font-size: 0.8rem; color: var(--text-muted);">Select Theme</h6>
