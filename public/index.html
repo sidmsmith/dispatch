@@ -1725,11 +1725,39 @@
     document.getElementById('driverPromptConfirm').addEventListener('click', async () => {
       const code = driverCodeInput.value.trim();
       if (!code) { driverCodeInput.focus(); return; }
-      driverPromptModal.classList.remove('visible');
+
+      const confirmBtn = document.getElementById('driverPromptConfirm');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Validating...';
 
       const org = orgInput.value.trim();
       const tripId = selectedTrip.TripId;
       const assignData = selectedTrip.AssignData || {};
+
+      const precheck = await api('precheck_driver', {
+        org, token, driver_code: code,
+        carrier_id: assignData.CarrierId || null,
+        terminal_id: assignData.TerminalId || null
+      });
+
+      if (!precheck.success) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Assign';
+        driverPromptModal.classList.remove('visible');
+        closeBottomSheet();
+        const header = document.getElementById('modalHeader');
+        const msg = document.getElementById('modalMessage');
+        header.className = 'modal-header-error';
+        header.innerHTML = '<i class="fas fa-exclamation-circle"></i><h5>Driver Validation Failed</h5>';
+        msg.textContent = precheck.error || 'Driver pre-check failed.';
+        assignModal.classList.add('visible');
+        return;
+      }
+
+      driverPromptModal.classList.remove('visible');
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Assign';
+
       const res = await api('assign_trip', { org, token, trip_id: tripId, driver_code: code, assign_data: assignData });
       closeBottomSheet();
 

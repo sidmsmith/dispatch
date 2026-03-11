@@ -348,6 +348,19 @@ def compute_trip_stops(segments_sorted):
     return len(stops), stops
 
 
+def derive_trip_terminal(segments_sorted):
+    """Derive a single TerminalId from segments. Returns the terminal only
+    if all non-null TrailerAssetTerminalId values agree; otherwise None."""
+    terminals = set()
+    for seg in segments_sorted:
+        t = seg.get("TrailerAssetTerminalId")
+        if t:
+            terminals.add(t)
+    if len(terminals) == 1:
+        return terminals.pop()
+    return None
+
+
 def transform_trip(raw_trip, facility_map=None, home_facility_ids=None):
     """Transform a raw Manhattan API trip into the frontend display format"""
     segments = raw_trip.get("TripSegment", []) or []
@@ -453,6 +466,8 @@ def transform_trip(raw_trip, facility_map=None, home_facility_ids=None):
         } for s in segments_sorted],
         "AssignData": {
             "TractorAssetId": raw_trip.get("AssignedTractorAssetId"),
+            "CarrierId": raw_trip.get("AssignedCarrierId"),
+            "TerminalId": derive_trip_terminal(segments_sorted),
             "Segments": [{
                 "SegmentId": s.get("SegmentId"),
                 "ShipmentId": s.get("ShipmentId"),
@@ -649,6 +664,83 @@ def trip_detail():
         return jsonify({"success": False, "error": "Missing data"})
 
     return jsonify({"success": True, "message": "Detail API TBD"})
+
+
+@app.route('/api/precheck_driver', methods=['POST'])
+def precheck_driver():
+    """Validate that a driver is suitable for a trip before assignment.
+    Checks: driver exists, is active, carrier matches, terminal matches."""
+    org = request.json.get('org')
+    token = request.json.get('token')
+    driver_code = request.json.get('driver_code')
+    carrier_id = request.json.get('carrier_id')
+    terminal_id = request.json.get('terminal_id')
+
+    if not all([org, token, driver_code]):
+        return jsonify({"success": False, "error": "Missing required fields"})
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "selectedOrganization": org,
+        "selectedLocation": f"{org}-DM1"
+    }
+
+    url = f"https://{API_HOST}/asset-manager/api/asset-manager/driver/search"
+    payload = {
+        "Query": f"DriverCode = '{driver_code}'",
+        "Template": {
+            "DriverId": None,
+            "DriverCode": None,
+            "CarrierId": None,
+            "TerminalId": None,
+            "Active": None
+        },
+        "Size": 5
+    }
+
+    try:
+        print(f"[PrecheckDriver] Looking up DriverCode='{driver_code}'")
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+
+        if not r.ok:
+            return jsonify({"success": False, "error": f"Driver lookup failed: HTTP {r.status_code}"})
+
+        body = r.json()
+        data = body.get("data", []) or []
+        if not data:
+            return jsonify({"success": False, "error": f"Driver code '{driver_code}' not found in the system"})
+
+        driver = data[0]
+        driver_active = driver.get("Active")
+        driver_carrier = driver.get("CarrierId")
+        driver_terminal = driver.get("TerminalId")
+
+        print(f"[PrecheckDriver] Found driver: Active={driver_active}, CarrierId={driver_carrier}, TerminalId={driver_terminal}")
+
+        if driver_active is False:
+            return jsonify({"success": False, "error": f"Driver '{driver_code}' is inactive"})
+
+        if carrier_id and driver_carrier and carrier_id != driver_carrier:
+            return jsonify({"success": False,
+                "error": f"Carrier mismatch: trip carrier is '{carrier_id}' but driver '{driver_code}' belongs to carrier '{driver_carrier}'"})
+
+        if terminal_id and driver_terminal and terminal_id != driver_terminal:
+            return jsonify({"success": False,
+                "error": f"Terminal mismatch: trip terminal is '{terminal_id}' but driver '{driver_code}' belongs to terminal '{driver_terminal}'"})
+
+        return jsonify({"success": True, "driver": {
+            "DriverId": driver.get("DriverId"),
+            "DriverCode": driver.get("DriverCode"),
+            "CarrierId": driver_carrier,
+            "TerminalId": driver_terminal,
+            "Active": driver_active
+        }})
+
+    except Exception as e:
+        print(f"[PrecheckDriver] Exception: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)})
 
 
 @app.route('/api/assign_trip', methods=['POST'])
