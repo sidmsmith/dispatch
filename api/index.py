@@ -129,9 +129,127 @@ def equipment_types():
         return jsonify({"success": False, "error": str(e)})
 
 
+TRIP_STATUS_MAP = {
+    "1000": "Requested",
+    "2000": "Tendered",
+    "3000": "Accepted",
+    "4000": "In Transit",
+    "5000": "Delivered",
+    "8000": "Complete",
+    "9000": "Cancelled"
+}
+
+
+def format_dt_short(iso_str):
+    """Format ISO datetime to compact display like 'MM/DD HH:MM'"""
+    if not iso_str:
+        return "-"
+    try:
+        dt = datetime.fromisoformat(iso_str)
+        return dt.strftime("%m/%d %H:%M")
+    except:
+        return iso_str[:16] if len(iso_str) >= 16 else iso_str
+
+
+def calc_duration(start_iso, end_iso):
+    """Calculate duration string between two ISO timestamps"""
+    if not start_iso or not end_iso:
+        return "-"
+    try:
+        start = datetime.fromisoformat(start_iso)
+        end = datetime.fromisoformat(end_iso)
+        delta = end - start
+        total_minutes = int(delta.total_seconds() / 60)
+        hours = total_minutes // 60
+        minutes = total_minutes % 60
+        return f"{hours}h {minutes:02d}m"
+    except:
+        return "-"
+
+
+def transform_trip(raw_trip):
+    """Transform a raw Manhattan API trip into the frontend display format"""
+    segments = raw_trip.get("TripSegment", []) or []
+    segments_sorted = sorted(segments, key=lambda s: s.get("Sequence", 0))
+
+    first_seg = segments_sorted[0] if segments_sorted else {}
+    last_seg = segments_sorted[-1] if segments_sorted else {}
+
+    status_obj = raw_trip.get("TripStatusId", {}) or {}
+    status_code = status_obj.get("TripStatusId", "") if isinstance(status_obj, dict) else str(status_obj)
+    status_label = TRIP_STATUS_MAP.get(status_code, status_code)
+
+    origin = first_seg.get("OriginFacilityId", "-")
+    destination = first_seg.get("DestinationFacilityId", "-")
+
+    pickup_start = first_seg.get("PlannedOriginDepartureStart")
+    delivery_end = last_seg.get("PlannedDestinationArrivalStart")
+
+    total_distance = sum(s.get("OneWayDistance", 0) or 0 for s in segments_sorted)
+
+    shipments = []
+    for s in segments_sorted:
+        sid = s.get("ShipmentId")
+        if sid:
+            shipments.append({
+                "ShipmentId": sid,
+                "Distance": f"{s.get('OneWayDistance', 0):.1f} mi",
+                "Origin": s.get("OriginFacilityId", "-"),
+                "Destination": s.get("DestinationFacilityId", "-")
+            })
+
+    unique_facilities = set()
+    for s in segments_sorted:
+        if s.get("OriginFacilityId"):
+            unique_facilities.add(s["OriginFacilityId"])
+        if s.get("DestinationFacilityId"):
+            unique_facilities.add(s["DestinationFacilityId"])
+
+    driver = raw_trip.get("AssignedDriverId") or "-"
+
+    return {
+        "TripId": raw_trip.get("TripId", "-"),
+        "Status": status_label,
+        "StatusCode": status_code,
+        "Origin": origin,
+        "Destination": destination,
+        "PickupWindow": format_dt_short(pickup_start),
+        "DeliveryWindow": format_dt_short(delivery_end),
+        "TotalDuration": calc_duration(pickup_start, delivery_end),
+        "TotalStops": len(unique_facilities),
+        "TotalSegments": len(segments_sorted),
+        "TotalDistance": f"{total_distance:.1f} mi",
+        "Backhaul": "Yes" if len(segments_sorted) > 2 else "No",
+        "CurrentDriver": driver,
+        "Carrier": raw_trip.get("AssignedCarrierId", "-"),
+        "Tractor": raw_trip.get("AssignedTractorAssetId", "-"),
+        "Overview": {
+            "Carrier": raw_trip.get("AssignedCarrierId", "-"),
+            "Distance": f"{total_distance:.1f} mi",
+            "Segments": str(len(segments_sorted))
+        },
+        "Shipments": shipments,
+        "DriverAssignment": {
+            "Name": driver,
+            "Role": "Assigned Driver" if driver != "-" else "Unassigned"
+        },
+        "Segments": [{
+            "SegmentId": s.get("SegmentId", "-"),
+            "Sequence": s.get("Sequence", 0),
+            "ShipmentId": s.get("ShipmentId") or "-",
+            "Origin": s.get("OriginFacilityId", "-"),
+            "Destination": s.get("DestinationFacilityId", "-"),
+            "Departure": format_dt_short(s.get("PlannedOriginDepartureStart")),
+            "Arrival": format_dt_short(s.get("PlannedDestinationArrivalStart")),
+            "Distance": f"{s.get('OneWayDistance', 0) or 0:.1f} mi",
+            "Trailer": s.get("AssignedTrailerNumber") or s.get("AssignedTrailerId") or "-"
+        } for s in segments_sorted]
+    }
+
+
 @app.route('/api/search_trips', methods=['POST'])
 def search_trips():
-    """Search trips with filter criteria (placeholder - API TBD)"""
+    """Search trips using Manhattan TMS trip/search API"""
     org = request.json.get('org')
     token = request.json.get('token')
     filters = request.json.get('filters', {})
@@ -140,39 +258,65 @@ def search_trips():
 
     send_ha_message({"event": "dispatch_search_trips", "org": org, "filters": filters})
 
-    # Placeholder: return mock trips until real API is provided
-    mock_trips = []
-    for i in range(25):
-        trip_num = f"TRIP-{10123 + i:05d}"
-        mock_trips.append({
-            "TripId": trip_num,
-            "Status": "Available",
-            "Origin": f"{filters.get('destinationCity', 'New York')}, {filters.get('destinationState', 'NY')}",
-            "Destination": "Philadelphia, PA",
-            "PickupWindow": "10/25 08:00-10:00",
-            "DeliveryWindow": "10/25 14:00-16:00",
-            "TotalDuration": "4h 30m",
-            "TotalStops": 3,
-            "TotalSegments": 3,
-            "Backhaul": "No",
-            "RequiredEquipment": filters.get('requiredEquipment', 'Reefer'),
-            "CurrentDriver": "-",
-            "Overview": {
-                "Customer": "Acme Corp",
-                "Weight": "15,000 lbs",
-                "Volume": "1,200 cu ft"
-            },
-            "Shipments": [
-                {"ShipmentId": f"SH-{8876 + i * 2}", "Volume": f"{4500 + i * 100} lbs"},
-                {"ShipmentId": f"SH-{8877 + i * 2}", "Volume": f"{5000 + i * 100} lbs"}
-            ],
-            "DriverAssignment": {
-                "Name": "John Doe",
-                "Role": "Current Driver"
-            }
-        })
+    query_parts = ["TripSegment.Sequence = '1'"]
 
-    return jsonify({"success": True, "trips": mock_trips, "count": len(mock_trips)})
+    pickup_from = filters.get("pickupFrom")
+    pickup_to = filters.get("pickupTo")
+    if pickup_from:
+        query_parts.append(f"TripSegment.PlannedOriginDepartureStart >= '{pickup_from}:00'")
+    if pickup_to:
+        query_parts.append(f"TripSegment.PlannedOriginDepartureStart < '{pickup_to}:00'")
+
+    query_string = " and ".join(query_parts)
+
+    url = f"https://{API_HOST}/shipment/api/shipment/trip/search"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "selectedOrganization": org,
+        "selectedLocation": f"{org}-DM1"
+    }
+    payload = {
+        "Query": query_string,
+        "Template": {
+            "TripId": None,
+            "TripStatusId": None,
+            "CreatedTimestamp": None,
+            "AssignedCarrierId": None,
+            "AssignedDriverId": None,
+            "AssignedTractorAssetId": None,
+            "TripSegment": None
+        },
+        "Sort": [{"attribute": "CreatedTimestamp", "direction": "asc"}],
+        "Size": 100
+    }
+
+    try:
+        print(f"[SearchTrips] Query: {query_string}")
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+        print(f"[SearchTrips] Status: {r.status_code}")
+
+        if r.ok:
+            body = r.json()
+            raw_trips = body.get("data", []) or []
+            total_count = body.get("header", {}).get("totalCount", len(raw_trips))
+
+            trips = [transform_trip(t) for t in raw_trips]
+
+            return jsonify({
+                "success": True,
+                "trips": trips,
+                "count": int(total_count)
+            })
+        else:
+            error_text = r.text[:500]
+            print(f"[SearchTrips] Error: {error_text}")
+            return jsonify({"success": False, "error": f"HTTP {r.status_code}: {error_text}"})
+    except Exception as e:
+        print(f"[SearchTrips] Exception: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)})
 
 
 @app.route('/api/trip_detail', methods=['POST'])

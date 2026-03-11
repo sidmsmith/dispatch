@@ -727,13 +727,13 @@
                 <th>Status</th>
                 <th>Origin</th>
                 <th>Destination</th>
-                <th>Pickup Window</th>
-                <th>Delivery Window</th>
+                <th>Pickup</th>
+                <th>Delivery</th>
                 <th>Duration</th>
                 <th>Stops</th>
                 <th>Segments</th>
-                <th>Backhaul</th>
-                <th>Equipment</th>
+                <th>Distance</th>
+                <th>Carrier</th>
                 <th>Driver</th>
               </tr>
             </thead>
@@ -750,15 +750,16 @@
           </div>
           <div class="detail-section">
             <h6>Overview</h6>
-            <div class="detail-kv"><span class="kv-label">Customer:</span><span class="kv-value" id="detailCustomer"></span></div>
-            <div class="detail-kv"><span class="kv-label">Weight:</span><span class="kv-value" id="detailWeight"></span></div>
-            <div class="detail-kv"><span class="kv-label">Volume:</span><span class="kv-value" id="detailVolume"></span></div>
+            <div class="detail-kv"><span class="kv-label">Carrier:</span><span class="kv-value" id="detailCarrier"></span></div>
+            <div class="detail-kv"><span class="kv-label">Tractor:</span><span class="kv-value" id="detailTractor"></span></div>
+            <div class="detail-kv"><span class="kv-label">Total Distance:</span><span class="kv-value" id="detailDistance"></span></div>
+            <div class="detail-kv"><span class="kv-label">Stops:</span><span class="kv-value" id="detailStops"></span></div>
           </div>
           <div class="detail-section">
-            <h6>Shipments</h6>
+            <h6>Segments</h6>
             <table class="shipments-mini-table">
-              <thead><tr><th>Shipment</th><th>Volume</th></tr></thead>
-              <tbody id="detailShipments"></tbody>
+              <thead><tr><th>Seq</th><th>Origin</th><th>Dest</th><th>Depart</th><th>Dist</th></tr></thead>
+              <tbody id="detailSegments"></tbody>
             </table>
           </div>
           <div class="detail-section">
@@ -801,15 +802,16 @@
     </div>
     <div class="detail-section">
       <h6>Overview</h6>
-      <div class="detail-kv"><span class="kv-label">Customer:</span><span class="kv-value" id="sheetCustomer"></span></div>
-      <div class="detail-kv"><span class="kv-label">Weight:</span><span class="kv-value" id="sheetWeight"></span></div>
-      <div class="detail-kv"><span class="kv-label">Volume:</span><span class="kv-value" id="sheetVolume"></span></div>
+      <div class="detail-kv"><span class="kv-label">Carrier:</span><span class="kv-value" id="sheetCarrier"></span></div>
+      <div class="detail-kv"><span class="kv-label">Tractor:</span><span class="kv-value" id="sheetTractor"></span></div>
+      <div class="detail-kv"><span class="kv-label">Total Distance:</span><span class="kv-value" id="sheetDistance"></span></div>
+      <div class="detail-kv"><span class="kv-label">Stops:</span><span class="kv-value" id="sheetStops"></span></div>
     </div>
     <div class="detail-section">
-      <h6>Shipments</h6>
+      <h6>Segments</h6>
       <table class="shipments-mini-table">
-        <thead><tr><th>Shipment</th><th>Volume</th></tr></thead>
-        <tbody id="sheetShipments"></tbody>
+        <thead><tr><th>Seq</th><th>Origin</th><th>Dest</th><th>Depart</th><th>Dist</th></tr></thead>
+        <tbody id="sheetSegments"></tbody>
       </table>
     </div>
     <div class="detail-section">
@@ -990,6 +992,8 @@
 
       const from = document.getElementById('pickupFrom').value;
       const to = document.getElementById('pickupTo').value;
+      if (from) f.pickupFrom = from;
+      if (to) f.pickupTo = to;
       if (from || to) f.pickupRange = `${from || '...'} – ${to || '...'}`;
 
       return f;
@@ -1007,9 +1011,12 @@
       pickupRange: 'Pickup Range'
     };
 
+    const HIDDEN_CHIP_KEYS = new Set(['pickupFrom', 'pickupTo']);
+
     function renderChips() {
       chipsBar.innerHTML = '';
       for (const [key, val] of Object.entries(currentFilters)) {
+        if (HIDDEN_CHIP_KEYS.has(key)) continue;
         const chip = document.createElement('span');
         chip.className = 'chip';
         chip.innerHTML = `${FILTER_LABELS[key] || key}: ${val} <span class="chip-close" data-key="${key}"><i class="fas fa-times"></i></span>`;
@@ -1019,6 +1026,10 @@
         el.addEventListener('click', () => {
           const key = el.dataset.key;
           delete currentFilters[key];
+          if (key === 'pickupRange') {
+            delete currentFilters['pickupFrom'];
+            delete currentFilters['pickupTo'];
+          }
           clearFilterField(key);
           renderChips();
           runSearch();
@@ -1119,8 +1130,8 @@
           <td>${t.TotalDuration}</td>
           <td>${t.TotalStops}</td>
           <td>${t.TotalSegments}</td>
-          <td>${t.Backhaul}</td>
-          <td>${t.RequiredEquipment}</td>
+          <td>${t.TotalDistance || '-'}</td>
+          <td>${t.Carrier || '-'}</td>
           <td>${t.CurrentDriver}</td>
         </tr>
       `).join('');
@@ -1146,8 +1157,8 @@
           <div class="trip-card-route">${t.Origin} → ${t.Destination}</div>
           <div class="trip-card-meta">
             <span><i class="fas fa-clock"></i> ${t.TotalDuration}</span>
+            <span><i class="fas fa-route"></i> ${t.TotalDistance}</span>
             <span><i class="fas fa-map-marker-alt"></i> ${t.TotalStops} stops</span>
-            <span>${t.RequiredEquipment}</span>
           </div>
         </div>
       `).join('');
@@ -1165,15 +1176,17 @@
     // === DETAIL PANEL (desktop) ===
     function showDetailPanel(trip) {
       selectedTrip = trip;
-      document.getElementById('detailTripId').textContent = trip.TripId + ' Overview';
-      document.getElementById('detailCustomer').textContent = trip.Overview.Customer;
-      document.getElementById('detailWeight').textContent = trip.Overview.Weight;
-      document.getElementById('detailVolume').textContent = trip.Overview.Volume;
-      document.getElementById('detailShipments').innerHTML = trip.Shipments.map(s =>
-        `<tr><td>${s.ShipmentId}</td><td>${s.Volume}</td></tr>`
+      document.getElementById('detailTripId').textContent = trip.TripId;
+      document.getElementById('detailCarrier').textContent = trip.Carrier || '-';
+      document.getElementById('detailTractor').textContent = trip.Tractor || '-';
+      document.getElementById('detailDistance').textContent = trip.TotalDistance || '-';
+      document.getElementById('detailStops').textContent = trip.TotalStops || '-';
+      const segs = trip.Segments || [];
+      document.getElementById('detailSegments').innerHTML = segs.map(s =>
+        `<tr><td>${s.Sequence}</td><td>${s.Origin}</td><td>${s.Destination}</td><td>${s.Departure}</td><td>${s.Distance}</td></tr>`
       ).join('');
-      document.getElementById('detailDriverName').textContent = trip.DriverAssignment.Name;
-      document.getElementById('detailDriverRole').textContent = `(${trip.DriverAssignment.Role})`;
+      document.getElementById('detailDriverName').textContent = trip.DriverAssignment?.Name || '-';
+      document.getElementById('detailDriverRole').textContent = `(${trip.DriverAssignment?.Role || 'Unknown'})`;
       const assignBtn = document.getElementById('assignBtn');
       assignBtn.disabled = trip.CurrentDriver !== '-';
       assignBtn.textContent = trip.CurrentDriver !== '-' ? 'Already Assigned' : 'Assign Trip to Me';
@@ -1189,15 +1202,17 @@
     // === BOTTOM SHEET (mobile) ===
     function showBottomSheet(trip) {
       selectedTrip = trip;
-      document.getElementById('sheetTripId').textContent = trip.TripId + ' Overview';
-      document.getElementById('sheetCustomer').textContent = trip.Overview.Customer;
-      document.getElementById('sheetWeight').textContent = trip.Overview.Weight;
-      document.getElementById('sheetVolume').textContent = trip.Overview.Volume;
-      document.getElementById('sheetShipments').innerHTML = trip.Shipments.map(s =>
-        `<tr><td>${s.ShipmentId}</td><td>${s.Volume}</td></tr>`
+      document.getElementById('sheetTripId').textContent = trip.TripId;
+      document.getElementById('sheetCarrier').textContent = trip.Carrier || '-';
+      document.getElementById('sheetTractor').textContent = trip.Tractor || '-';
+      document.getElementById('sheetDistance').textContent = trip.TotalDistance || '-';
+      document.getElementById('sheetStops').textContent = trip.TotalStops || '-';
+      const segs = trip.Segments || [];
+      document.getElementById('sheetSegments').innerHTML = segs.map(s =>
+        `<tr><td>${s.Sequence}</td><td>${s.Origin}</td><td>${s.Destination}</td><td>${s.Departure}</td><td>${s.Distance}</td></tr>`
       ).join('');
-      document.getElementById('sheetDriverName').textContent = trip.DriverAssignment.Name;
-      document.getElementById('sheetDriverRole').textContent = `(${trip.DriverAssignment.Role})`;
+      document.getElementById('sheetDriverName').textContent = trip.DriverAssignment?.Name || '-';
+      document.getElementById('sheetDriverRole').textContent = `(${trip.DriverAssignment?.Role || 'Unknown'})`;
       const btn = document.getElementById('assignBtnMobile');
       btn.disabled = trip.CurrentDriver !== '-';
       btn.textContent = trip.CurrentDriver !== '-' ? 'Already Assigned' : 'Assign Trip to Me';
