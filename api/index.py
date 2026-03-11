@@ -207,6 +207,15 @@ def transform_trip(raw_trip):
 
     driver = raw_trip.get("AssignedDriverId") or "-"
 
+    duration_hours = None
+    if pickup_start and delivery_end:
+        try:
+            dt_start = datetime.fromisoformat(pickup_start)
+            dt_end = datetime.fromisoformat(delivery_end)
+            duration_hours = (dt_end - dt_start).total_seconds() / 3600.0
+        except:
+            pass
+
     return {
         "TripId": raw_trip.get("TripId", "-"),
         "Status": status_label,
@@ -216,6 +225,7 @@ def transform_trip(raw_trip):
         "PickupWindow": format_dt_short(pickup_start),
         "DeliveryWindow": format_dt_short(delivery_end),
         "TotalDuration": calc_duration(pickup_start, delivery_end),
+        "DurationHours": duration_hours,
         "TotalStops": len(unique_facilities),
         "TotalSegments": len(segments_sorted),
         "TotalDistance": f"{total_distance:.1f} mi",
@@ -303,10 +313,24 @@ def search_trips():
 
             trips = [transform_trip(t) for t in raw_trips]
 
+            duration_min = filters.get("durationMin")
+            duration_max = filters.get("durationMax")
+            if duration_min is not None or duration_max is not None:
+                d_lo = float(duration_min) if duration_min is not None else 0
+                d_hi = float(duration_max) if duration_max is not None else 9999
+                trips = [t for t in trips if t.get("DurationHours") is not None and d_lo <= t["DurationHours"] <= d_hi]
+
+            seg_min = filters.get("segmentsMin")
+            seg_max = filters.get("segmentsMax")
+            if seg_min is not None or seg_max is not None:
+                s_lo = int(seg_min) if seg_min is not None else 1
+                s_hi = int(seg_max) if seg_max is not None else 9999
+                trips = [t for t in trips if s_lo <= t.get("TotalSegments", 0) <= s_hi]
+
             return jsonify({
                 "success": True,
                 "trips": trips,
-                "count": int(total_count)
+                "count": len(trips)
             })
         else:
             error_text = r.text[:500]
