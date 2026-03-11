@@ -1392,13 +1392,20 @@
       stopsLoading = false;
     }
 
+    function buildDefaultStops(seg) {
+      return [
+        { StopSequence: 1, FacilityId: seg.OriginFacility || '-', Address: seg.Origin || '-', StopAction: '-',
+          PlannedArrival: seg.Departure, PlannedDeparture: seg.Departure },
+        { StopSequence: 2, FacilityId: seg.DestinationFacility || '-', Address: seg.Destination || '-', StopAction: '-',
+          PlannedArrival: seg.Arrival, PlannedDeparture: seg.Arrival }
+      ];
+    }
+
     function renderSegmentsWithAccordion(segs, tbodyId) {
       const tbody = document.getElementById(tbodyId);
       tbody.innerHTML = segs.map((s, i) => {
-        const hasShipment = s.ShipmentId && s.ShipmentId !== '-';
-        const chevron = hasShipment ? '<span class="seg-chevron"><i class="fas fa-chevron-right"></i></span>' : '';
-        return `<tr class="seg-row${hasShipment ? '' : ' no-stops'}" data-seg-idx="${i}" data-shipment="${s.ShipmentId||''}">
-          <td>${chevron}${s.Sequence}</td><td>${s.Origin}</td><td>${s.Destination}</td><td>${fmtDt(s.Departure)}</td><td>${s.Distance}</td>
+        return `<tr class="seg-row" data-seg-idx="${i}" data-shipment="${s.ShipmentId||''}">
+          <td><span class="seg-chevron"><i class="fas fa-chevron-right"></i></span>${s.Sequence}</td><td>${s.Origin}</td><td>${s.Destination}</td><td>${fmtDt(s.Departure)}</td><td>${s.Distance}</td>
         </tr>
         <tr class="seg-stops-row" data-seg-idx="${i}">
           <td colspan="5">
@@ -1407,7 +1414,7 @@
         </tr>`;
       }).join('');
 
-      tbody.querySelectorAll('.seg-row:not(.no-stops)').forEach(row => {
+      tbody.querySelectorAll('.seg-row').forEach(row => {
         row.addEventListener('click', e => {
           e.stopPropagation();
           const idx = row.dataset.segIdx;
@@ -1425,18 +1432,25 @@
           stopsRow.classList.add('visible');
 
           const shipId = row.dataset.shipment;
-          const stops = shipmentStopsMap[shipId];
+          const hasShipment = shipId && shipId !== '-';
+          const seg = segs[parseInt(idx)];
 
+          if (!hasShipment) {
+            renderStopsTable(container, buildDefaultStops(seg));
+            return;
+          }
+
+          const stops = shipmentStopsMap[shipId];
           if (stopsLoading) {
             container.innerHTML = '<div class="stops-loading"><i class="fas fa-spinner fa-spin"></i> Loading stops...</div>';
             const poll = setInterval(() => {
               if (!stopsLoading) {
                 clearInterval(poll);
-                renderStopsTable(container, shipmentStopsMap[shipId]);
+                renderStopsTable(container, shipmentStopsMap[shipId] || buildDefaultStops(seg));
               }
             }, 300);
           } else {
-            renderStopsTable(container, stops);
+            renderStopsTable(container, stops || buildDefaultStops(seg));
           }
         });
       });
