@@ -200,6 +200,26 @@
       color: var(--text-muted);
       margin-bottom: 0.35rem;
     }
+    .filter-field-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.35rem;
+      min-height: 1.25rem;
+    }
+    .filter-field-header > label {
+      margin-bottom: 0;
+    }
+    .today-check-label {
+      margin: 0;
+      font-size: 0.82rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
 
     /* Range slider styling */
     .range-slider-container {
@@ -934,9 +954,9 @@
           </select>
         </div>
         <div class="filter-field">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <label style="margin:0;">Pickup Start Date-Time</label>
-            <label style="margin:0;font-size:0.82rem;cursor:pointer;display:flex;align-items:center;gap:0.3rem;color:var(--text-muted);">
+          <div class="filter-field-header">
+            <label>Pickup Start Date-Time</label>
+            <label class="today-check-label">
               <input type="checkbox" id="todayCheck" style="cursor:pointer;" /> Today?
             </label>
           </div>
