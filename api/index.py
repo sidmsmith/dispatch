@@ -122,8 +122,10 @@ def equipment_types():
             else:
                 types = []
             for t in types:
-                if t.get("Description"):
-                    t["Description"] = t["Description"].strip()
+                desc = (t.get("Description") or "").strip()
+                eq_id = (t.get("EquipmentTypeId") or "").strip()
+                # If Description is missing/blank, use EquipmentTypeId for display and sorting.
+                t["Description"] = desc or eq_id
             types.sort(key=lambda t: (t.get("Description") or "").lower())
             return jsonify({"success": True, "types": types})
         else:

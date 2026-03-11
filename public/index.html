@@ -1521,11 +1521,12 @@
       const sel = document.getElementById('filterEquipment');
       sel.innerHTML = '<option value="">Any Equipment</option>';
       if (res.success && res.types) {
-        res.types.sort((a, b) => (a.Description || '').localeCompare(b.Description || ''));
+        const labelFor = (t) => ((t.Description || t.EquipmentTypeId || '').trim());
+        res.types.sort((a, b) => labelFor(a).localeCompare(labelFor(b), undefined, { sensitivity: 'base' }));
         res.types.forEach(t => {
           const opt = document.createElement('option');
           opt.value = t.EquipmentTypeId;
-          opt.textContent = t.Description || t.EquipmentTypeId;
+          opt.textContent = labelFor(t);
           sel.appendChild(opt);
         });
       }
