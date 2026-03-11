@@ -1070,8 +1070,10 @@
         f.equipmentTypeId = equip.value;
       }
 
-      const from = document.getElementById('pickupFrom').value;
-      const to = document.getElementById('pickupTo').value;
+      let from = document.getElementById('pickupFrom').value;
+      let to = document.getElementById('pickupTo').value;
+      if (from && !from.includes('T')) from += 'T00:00';
+      if (to && !to.includes('T')) to += 'T23:59';
       if (from) f.pickupFrom = from;
       if (to) f.pickupTo = to;
       if (from || to) f.pickupRange = `${from || '...'} – ${to || '...'}`;

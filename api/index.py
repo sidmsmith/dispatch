@@ -176,44 +176,52 @@ def format_city_state(city, state):
 
 
 def resolve_facility_locations(facility_ids, headers):
-    """Batch-resolve FacilityIds to 'City, State' via facility search API.
+    """Batch-resolve FacilityIds to 'City, State' via a single facility search API call.
     Returns dict of {FacilityId: 'City, ST'} for each resolved facility."""
     if not facility_ids:
         return {}
 
     facility_map = {}
-    for fid in facility_ids:
-        try:
-            url = f"https://{API_HOST}/facility/api/facility/facility/search"
-            payload = {
-                "Query": f"FacilityId = '{fid}'",
-                "Template": {
-                    "FacilityId": None,
-                    "FacilityAddress": {
-                        "City": None,
-                        "State": None,
-                        "PostalCode": None,
-                        "Country": None
-                    }
-                },
-                "Sort": [],
-                "Size": 1
-            }
-            r = requests.post(url, json=payload, headers=headers, timeout=15, verify=False)
-            if r.ok:
-                data = r.json().get("data", []) or []
-                if data:
-                    fac = data[0]
-                    addr = fac.get("FacilityAddress") or {}
-                    city = addr.get("City", "")
-                    state = addr.get("State", "")
-                    formatted = format_city_state(city, state)
-                    if formatted:
-                        facility_map[fid] = formatted
-        except Exception as e:
-            print(f"[FacilityLookup] Error resolving {fid}: {e}")
+    ids_list = list(facility_ids)
+    in_clause = ",".join(f"'{fid}'" for fid in ids_list)
 
-    print(f"[FacilityLookup] Resolved {len(facility_map)}/{len(facility_ids)} facilities")
+    url = f"https://{API_HOST}/facility/api/facility/facility/search"
+    payload = {
+        "Query": f"FacilityId in ({in_clause})",
+        "Template": {
+            "FacilityId": None,
+            "Description": None,
+            "FacilityAddress": {
+                "City": None,
+                "State": None,
+                "PostalCode": None,
+                "Country": None
+            }
+        },
+        "Size": 9999
+    }
+
+    try:
+        print(f"[FacilityLookup] Resolving {len(ids_list)} facilities in single query")
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+        if r.ok:
+            data = r.json().get("data", []) or []
+            for fac in data:
+                fid = fac.get("FacilityId")
+                if not fid:
+                    continue
+                addr = fac.get("FacilityAddress") or {}
+                city = addr.get("City", "")
+                state = addr.get("State", "")
+                formatted = format_city_state(city, state)
+                if formatted:
+                    facility_map[fid] = formatted
+        else:
+            print(f"[FacilityLookup] HTTP {r.status_code}: {r.text[:300]}")
+    except Exception as e:
+        print(f"[FacilityLookup] Exception: {e}")
+
+    print(f"[FacilityLookup] Resolved {len(facility_map)}/{len(ids_list)} facilities")
     return facility_map
 
 
