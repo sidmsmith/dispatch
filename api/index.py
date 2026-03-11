@@ -450,7 +450,15 @@ def transform_trip(raw_trip, facility_map=None, home_facility_ids=None):
             "Arrival": format_dt_short(s.get("PlannedDestinationArrivalStart")),
             "Distance": f"{s.get('OneWayDistance', 0) or 0:.1f} mi",
             "Trailer": s.get("AssignedTrailerNumber") or s.get("AssignedTrailerId") or "-"
-        } for s in segments_sorted]
+        } for s in segments_sorted],
+        "AssignData": {
+            "TractorAssetId": raw_trip.get("AssignedTractorAssetId"),
+            "Segments": [{
+                "SegmentId": s.get("SegmentId"),
+                "ShipmentId": s.get("ShipmentId"),
+                "TrailerNumber": s.get("AssignedTrailerNumber") or s.get("AssignedTrailerId") or s.get("AssignedTrailerAssetId")
+            } for s in segments_sorted]
+        }
     }
 
 
@@ -645,16 +653,67 @@ def trip_detail():
 
 @app.route('/api/assign_trip', methods=['POST'])
 def assign_trip():
-    """Assign trip to current user (placeholder - API TBD)"""
+    """Assign a driver to a trip via Dispatch /assignAssetResources,
+    preserving existing tractor and trailer assignments."""
     org = request.json.get('org')
     token = request.json.get('token')
     trip_id = request.json.get('trip_id')
-    if not all([org, token, trip_id]):
-        return jsonify({"success": False, "error": "Missing data"})
+    driver_code = request.json.get('driver_code')
+    assign_data = request.json.get('assign_data', {})
 
-    send_ha_message({"event": "dispatch_assign_trip", "org": org, "trip_id": trip_id})
+    if not all([org, token, trip_id, driver_code]):
+        return jsonify({"success": False, "error": "Missing required fields (org, token, trip_id, driver_code)"})
 
-    return jsonify({"success": True, "message": f"Trip {trip_id} assigned successfully"})
+    send_ha_message({"event": "dispatch_assign_trip", "org": org, "trip_id": trip_id, "driver_code": driver_code})
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "selectedOrganization": org,
+        "selectedLocation": f"{org}-DM1"
+    }
+
+    segments_payload = []
+    for seg in assign_data.get("Segments", []):
+        segments_payload.append({
+            "ShipmentId": seg.get("ShipmentId"),
+            "SegmentId": seg.get("SegmentId"),
+            "TrailerNumber": seg.get("TrailerNumber")
+        })
+
+    payload = {
+        "TripId": trip_id,
+        "DriverCode": driver_code,
+        "DriverCode2": None,
+        "DriverCode3": None,
+        "TractorNumber": assign_data.get("TractorAssetId"),
+        "Segments": segments_payload,
+        "KeepTractorAssignment": True,
+        "OverrideAllWarnings": True
+    }
+
+    url = f"https://{API_HOST}/dispatch/api/dispatch/assignAssetResources"
+
+    try:
+        print(f"[AssignTrip] Assigning driver {driver_code} to trip {trip_id}")
+        print(f"[AssignTrip] Payload: {json.dumps(payload)}")
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+        print(f"[AssignTrip] Status: {r.status_code}")
+        print(f"[AssignTrip] Response: {r.text[:500]}")
+
+        if r.ok:
+            body = r.json()
+            if body.get("success") is False:
+                error_msg = body.get("error") or body.get("message") or str(body)
+                return jsonify({"success": False, "error": f"Assignment failed: {error_msg}"})
+            return jsonify({"success": True, "message": f"Driver {driver_code} assigned to trip {trip_id}"})
+        else:
+            error_text = r.text[:500]
+            return jsonify({"success": False, "error": f"HTTP {r.status_code}: {error_text}"})
+    except Exception as e:
+        print(f"[AssignTrip] Exception: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)})
 
 
 @app.route('/api/ha-track', methods=['POST'])

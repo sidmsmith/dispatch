@@ -1037,6 +1037,23 @@
     </div>
   </div>
 
+  <!-- Driver code prompt modal -->
+  <div class="modal-overlay" id="driverPromptModal">
+    <div class="modal-box">
+      <div style="background:var(--primary-color);color:white;padding:1rem 1.5rem;display:flex;align-items:center;gap:0.75rem;">
+        <i class="fas fa-id-badge" style="font-size:1.5rem;"></i><h5 style="margin:0;">Enter Driver Code</h5>
+      </div>
+      <div class="modal-body" style="padding:1.25rem 1.5rem;">
+        <p style="margin:0 0 0.75rem;color:var(--text-muted);font-size:0.9rem;">Assign trip <strong id="driverPromptTripId"></strong></p>
+        <input type="text" class="form-control" id="driverCodeInput" placeholder="e.g. DRV104" autocomplete="off" />
+      </div>
+      <div class="modal-footer" style="display:flex;gap:0.5rem;justify-content:flex-end;">
+        <button class="btn btn-outline-secondary" id="driverPromptCancel">Cancel</button>
+        <button class="btn btn-primary" id="driverPromptConfirm">Assign</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Assign result modal -->
   <div class="modal-overlay" id="assignModal">
     <div class="modal-box">
@@ -1683,11 +1700,37 @@
     sheetOverlay.addEventListener('click', closeBottomSheet);
 
     // === ASSIGN TRIP ===
-    async function assignTrip() {
+    const driverPromptModal = document.getElementById('driverPromptModal');
+    const driverCodeInput = document.getElementById('driverCodeInput');
+
+    function promptDriverCode() {
       if (!selectedTrip) return;
+      document.getElementById('driverPromptTripId').textContent = selectedTrip.TripId;
+      driverCodeInput.value = '';
+      driverPromptModal.classList.add('visible');
+      setTimeout(() => driverCodeInput.focus(), 100);
+    }
+
+    document.getElementById('driverPromptCancel').addEventListener('click', () => {
+      driverPromptModal.classList.remove('visible');
+    });
+
+    driverCodeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('driverPromptConfirm').click();
+      }
+    });
+
+    document.getElementById('driverPromptConfirm').addEventListener('click', async () => {
+      const code = driverCodeInput.value.trim();
+      if (!code) { driverCodeInput.focus(); return; }
+      driverPromptModal.classList.remove('visible');
+
       const org = orgInput.value.trim();
       const tripId = selectedTrip.TripId;
-      const res = await api('assign_trip', { org, token, trip_id: tripId });
+      const assignData = selectedTrip.AssignData || {};
+      const res = await api('assign_trip', { org, token, trip_id: tripId, driver_code: code, assign_data: assignData });
       closeBottomSheet();
 
       const header = document.getElementById('modalHeader');
@@ -1695,17 +1738,17 @@
       if (res.success) {
         header.className = 'modal-header-success';
         header.innerHTML = '<i class="fas fa-check-circle"></i><h5>Trip Assigned!</h5>';
-        msg.textContent = `${tripId} has been assigned to you successfully.`;
+        msg.textContent = `Driver ${code} assigned to ${tripId} successfully.`;
       } else {
         header.className = 'modal-header-error';
         header.innerHTML = '<i class="fas fa-exclamation-circle"></i><h5>Assignment Failed</h5>';
         msg.textContent = res.error || 'An unexpected error occurred.';
       }
       assignModal.classList.add('visible');
-    }
+    });
 
-    document.getElementById('assignBtn').addEventListener('click', assignTrip);
-    document.getElementById('assignBtnMobile').addEventListener('click', assignTrip);
+    document.getElementById('assignBtn').addEventListener('click', promptDriverCode);
+    document.getElementById('assignBtnMobile').addEventListener('click', promptDriverCode);
     document.getElementById('modalOkBtn').addEventListener('click', () => {
       assignModal.classList.remove('visible');
       runSearch();
