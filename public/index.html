@@ -434,7 +434,7 @@
     }
 
     /* Mobile trip cards */
-    .trip-cards-mobile { display: none; }
+    .trip-cards-mobile { display: none; overflow-y: auto; }
     .trip-card-item {
       background: var(--card-bg);
       border: 1px solid var(--border-color);
@@ -585,8 +585,8 @@
     @media (max-width: 992px) {
       .detail-panel { display: none !important; }
       .trips-table-wrapper { display: none; }
-      .trip-cards-mobile { display: block; }
-      .trips-layout { flex: none; height: auto; min-height: auto; flex-direction: column; }
+      .trip-cards-mobile { display: block; flex: 1; min-height: 0; }
+      .trips-layout { flex: 1; min-height: 0; flex-direction: column; }
     }
     @media (min-width: 993px) {
       .bottom-sheet-overlay, .bottom-sheet { display: none !important; }
@@ -887,11 +887,13 @@
   <!-- Mobile bottom sheet -->
   <div class="bottom-sheet-overlay" id="sheetOverlay"></div>
   <div class="bottom-sheet" id="bottomSheet" style="position:fixed;">
-    <button class="detail-close" id="sheetClose" style="position:absolute;top:0.75rem;right:0.75rem;z-index:1;"><i class="fas fa-times"></i></button>
     <div class="bottom-sheet-handle"></div>
-    <div>
-      <small style="color:var(--text-muted);">Trip</small>
-      <h5 id="sheetTripId" style="margin:0 2rem 0.75rem 0;font-weight:700;"></h5>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.75rem;">
+      <div>
+        <small style="color:var(--text-muted);">Trip</small>
+        <h5 id="sheetTripId" style="margin:0;font-weight:700;"></h5>
+      </div>
+      <button class="detail-close" id="sheetClose"><i class="fas fa-times"></i></button>
     </div>
     <div class="detail-section">
       <h6>Overview</h6>
