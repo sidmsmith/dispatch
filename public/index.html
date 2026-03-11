@@ -868,7 +868,12 @@
           </select>
         </div>
         <div class="filter-field">
-          <label>Pickup Start Date-Time</label>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <label style="margin:0;">Pickup Start Date-Time</label>
+            <label style="margin:0;font-size:0.82rem;cursor:pointer;display:flex;align-items:center;gap:0.3rem;color:var(--text-muted);">
+              <input type="checkbox" id="todayCheck" style="cursor:pointer;" /> Today?
+            </label>
+          </div>
           <div class="d-flex gap-2 align-items-center flex-wrap">
             <input type="datetime-local" class="form-control" id="pickupFrom" style="min-width:0;flex:1;" />
             <span style="color:var(--text-muted);">–</span>
@@ -1349,8 +1354,25 @@
       submitFilters.disabled = invalid;
       submitFilters.style.opacity = invalid ? '0.5' : '';
     }
-    document.getElementById('pickupFrom').addEventListener('input', validateDateRange);
-    document.getElementById('pickupTo').addEventListener('input', validateDateRange);
+
+    const todayCheck = document.getElementById('todayCheck');
+    const pickupFrom = document.getElementById('pickupFrom');
+    const pickupTo = document.getElementById('pickupTo');
+
+    todayCheck.addEventListener('change', () => {
+      if (todayCheck.checked) {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        pickupFrom.value = `${yyyy}-${mm}-${dd}T00:00`;
+        pickupTo.value = `${yyyy}-${mm}-${dd}T23:59`;
+        validateDateRange();
+      }
+    });
+
+    pickupFrom.addEventListener('input', () => { todayCheck.checked = false; validateDateRange(); });
+    pickupTo.addEventListener('input', () => { todayCheck.checked = false; validateDateRange(); });
 
     document.querySelectorAll('#filtersScreen input, #filtersScreen select').forEach(el => {
       el.addEventListener('keydown', (e) => {
