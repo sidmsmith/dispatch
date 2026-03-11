@@ -838,10 +838,10 @@
           <div class="range-slider-container" id="segmentsSlider">
             <div class="range-slider-track"></div>
             <div class="range-slider-fill" id="segmentsFill"></div>
-            <input type="range" id="segmentsMin" min="1" max="5" value="1" step="1" />
-            <input type="range" id="segmentsMax" min="1" max="5" value="5" step="1" />
+            <input type="range" id="segmentsMin" min="1" max="7" value="1" step="1" />
+            <input type="range" id="segmentsMax" min="1" max="7" value="7" step="1" />
           </div>
-          <div class="range-labels"><span id="segmentsMinLabel">1</span><span id="segmentsMaxLabel">5</span></div>
+          <div class="range-labels"><span id="segmentsMinLabel">1</span><span id="segmentsMaxLabel">7</span></div>
         </div>
         <div class="filter-field">
           <label>Total Number of Stops</label>
@@ -1214,7 +1214,7 @@
 
       const segMin = parseInt(document.getElementById('segmentsMin').value);
       const segMax = parseInt(document.getElementById('segmentsMax').value);
-      if (segMin > 1 || segMax < 5) {
+      if (segMin > 1 || segMax < 7) {
         f.segmentsRange = `${segMin} – ${segMax}`;
         f.segmentsMin = segMin;
         f.segmentsMax = segMax;
@@ -1318,7 +1318,7 @@
           break;
         case 'segmentsRange':
           document.getElementById('segmentsMin').value = 1;
-          document.getElementById('segmentsMax').value = 5;
+          document.getElementById('segmentsMax').value = 7;
           document.getElementById('segmentsMin').dispatchEvent(new Event('input'));
           break;
         case 'stopsRange':
