@@ -712,30 +712,30 @@
           <div class="range-slider-container" id="durationSlider">
             <div class="range-slider-track"></div>
             <div class="range-slider-fill" id="durationFill"></div>
-            <input type="range" id="durationMin" min="0" max="48" value="0" step="1" />
-            <input type="range" id="durationMax" min="0" max="48" value="48" step="1" />
+            <input type="range" id="durationMin" min="0" max="60" value="0" step="1" />
+            <input type="range" id="durationMax" min="0" max="60" value="60" step="1" />
           </div>
-          <div class="range-labels"><span id="durationMinLabel">0h</span><span id="durationMaxLabel">48h</span></div>
+          <div class="range-labels"><span id="durationMinLabel">0h</span><span id="durationMaxLabel">60h</span></div>
         </div>
         <div class="filter-field">
           <label>Total Number of Segments Range</label>
           <div class="range-slider-container" id="segmentsSlider">
             <div class="range-slider-track"></div>
             <div class="range-slider-fill" id="segmentsFill"></div>
-            <input type="range" id="segmentsMin" min="1" max="20" value="1" step="1" />
-            <input type="range" id="segmentsMax" min="1" max="20" value="20" step="1" />
+            <input type="range" id="segmentsMin" min="1" max="5" value="1" step="1" />
+            <input type="range" id="segmentsMax" min="1" max="5" value="5" step="1" />
           </div>
-          <div class="range-labels"><span id="segmentsMinLabel">1</span><span id="segmentsMaxLabel">20</span></div>
+          <div class="range-labels"><span id="segmentsMinLabel">1</span><span id="segmentsMaxLabel">5</span></div>
         </div>
         <div class="filter-field">
           <label>Total Number of Stops Range</label>
           <div class="range-slider-container" id="stopsSlider">
             <div class="range-slider-track"></div>
             <div class="range-slider-fill" id="stopsFill"></div>
-            <input type="range" id="stopsMin" min="1" max="20" value="1" step="1" />
-            <input type="range" id="stopsMax" min="1" max="20" value="20" step="1" />
+            <input type="range" id="stopsMin" min="1" max="30" value="1" step="1" />
+            <input type="range" id="stopsMax" min="1" max="30" value="30" step="1" />
           </div>
-          <div class="range-labels"><span id="stopsMinLabel">1</span><span id="stopsMaxLabel">20</span></div>
+          <div class="range-labels"><span id="stopsMinLabel">1</span><span id="stopsMaxLabel">30</span></div>
         </div>
         <div class="filter-field">
           <label>Backhaul</label>
@@ -1044,7 +1044,7 @@
 
       const dMin = parseInt(document.getElementById('durationMin').value);
       const dMax = parseInt(document.getElementById('durationMax').value);
-      if (dMin > 0 || dMax < 48) {
+      if (dMin > 0 || dMax < 60) {
         f.durationRange = `${dMin}h – ${dMax}h`;
         f.durationMin = dMin;
         f.durationMax = dMax;
@@ -1052,7 +1052,7 @@
 
       const segMin = parseInt(document.getElementById('segmentsMin').value);
       const segMax = parseInt(document.getElementById('segmentsMax').value);
-      if (segMin > 1 || segMax < 20) {
+      if (segMin > 1 || segMax < 5) {
         f.segmentsRange = `${segMin} – ${segMax}`;
         f.segmentsMin = segMin;
         f.segmentsMax = segMax;
@@ -1060,7 +1060,7 @@
 
       const stMin = parseInt(document.getElementById('stopsMin').value);
       const stMax = parseInt(document.getElementById('stopsMax').value);
-      if (stMin > 1 || stMax < 20) f.stopsRange = `${stMin} – ${stMax}`;
+      if (stMin > 1 || stMax < 30) f.stopsRange = `${stMin} – ${stMax}`;
 
       const backhaul = document.querySelector('#backhaulControl .seg-btn.active').dataset.value;
       if (backhaul !== 'any') f.backhaul = backhaul === 'yes' ? 'Has Backhaul' : 'No Backhaul';
@@ -1137,17 +1137,17 @@
         case 'destinationState': document.getElementById('filterState').value = ''; break;
         case 'durationRange':
           document.getElementById('durationMin').value = 0;
-          document.getElementById('durationMax').value = 48;
+          document.getElementById('durationMax').value = 60;
           document.getElementById('durationMin').dispatchEvent(new Event('input'));
           break;
         case 'segmentsRange':
           document.getElementById('segmentsMin').value = 1;
-          document.getElementById('segmentsMax').value = 20;
+          document.getElementById('segmentsMax').value = 5;
           document.getElementById('segmentsMin').dispatchEvent(new Event('input'));
           break;
         case 'stopsRange':
           document.getElementById('stopsMin').value = 1;
-          document.getElementById('stopsMax').value = 20;
+          document.getElementById('stopsMax').value = 30;
           document.getElementById('stopsMin').dispatchEvent(new Event('input'));
           break;
         case 'backhaul':

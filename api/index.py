@@ -269,6 +269,15 @@ def transform_trip(raw_trip, facility_map=None):
     origin = format_location(first_seg, "Origin", fmap) if first_seg else "-"
     dest_city, dest_state, destination = get_location_parts(last_seg, "Destination", fmap) if last_seg else ("", "", "-")
 
+    all_dest_cities = set()
+    all_dest_states = set()
+    for s in segments_sorted:
+        sc, ss, _ = get_location_parts(s, "Destination", fmap)
+        if sc:
+            all_dest_cities.add(sc.lower())
+        if ss:
+            all_dest_states.add(ss.upper())
+
     pickup_start = first_seg.get("PlannedOriginDepartureStart")
     delivery_end = last_seg.get("PlannedDestinationArrivalStart")
 
@@ -311,6 +320,8 @@ def transform_trip(raw_trip, facility_map=None):
         "Destination": destination,
         "DestinationCity": dest_city,
         "DestinationState": dest_state,
+        "AllDestCities": list(all_dest_cities),
+        "AllDestStates": list(all_dest_states),
         "OriginFacility": origin_fid,
         "DestinationFacility": destination_fid,
         "PickupWindow": format_dt_short(pickup_start),
@@ -396,10 +407,10 @@ def search_trips():
         except Exception as e:
             print(f"[SearchTrips] Trailer asset search exception: {e}")
 
-    query_parts = ["TripSegment.Sequence = '1'"]
-
     pickup_from = filters.get("pickupFrom")
     pickup_to = filters.get("pickupTo")
+
+    query_parts = ["TripStatusId = '2000'"]
     if pickup_from:
         query_parts.append(f"TripSegment.PlannedOriginDepartureStart >= '{pickup_from}:00'")
     if pickup_to:
@@ -431,6 +442,22 @@ def search_trips():
         if r.ok:
             body = r.json()
             raw_trips = body.get("data", []) or []
+
+            if pickup_from or pickup_to:
+                date_filtered = []
+                for trip in raw_trips:
+                    segs = trip.get("TripSegment", []) or []
+                    seq1 = next((s for s in segs if s.get("Sequence") == 1), None)
+                    if not seq1:
+                        continue
+                    dep = seq1.get("PlannedOriginDepartureStart", "")
+                    if pickup_from and dep < f"{pickup_from}:00":
+                        continue
+                    if pickup_to and dep >= f"{pickup_to}:00":
+                        continue
+                    date_filtered.append(trip)
+                print(f"[SearchTrips] Date post-filter: {len(raw_trips)} -> {len(date_filtered)} trips")
+                raw_trips = date_filtered
 
             if valid_trailer_asset_ids is not None:
                 filtered = []
@@ -474,11 +501,11 @@ def search_trips():
 
             dest_city_filter = (filters.get("destinationCity") or "").strip().lower()
             if dest_city_filter:
-                trips = [t for t in trips if dest_city_filter in (t.get("DestinationCity") or "").lower()]
+                trips = [t for t in trips if any(dest_city_filter in c for c in t.get("AllDestCities", []))]
 
             dest_state_filter = (filters.get("destinationState") or "").strip().upper()
             if dest_state_filter:
-                trips = [t for t in trips if (t.get("DestinationState") or "").upper() == dest_state_filter]
+                trips = [t for t in trips if dest_state_filter in t.get("AllDestStates", [])]
 
             return jsonify({
                 "success": True,
