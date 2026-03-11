@@ -1162,10 +1162,21 @@
     }
 
     // === SEARCH ===
-    submitFilters.addEventListener('click', () => {
+    function triggerSearch() {
       currentFilters = gatherFilters();
       showResults();
       runSearch();
+    }
+
+    submitFilters.addEventListener('click', triggerSearch);
+
+    document.querySelectorAll('#filtersScreen input, #filtersScreen select').forEach(el => {
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          triggerSearch();
+        }
+      });
     });
 
     async function runSearch() {
