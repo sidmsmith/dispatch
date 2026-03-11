@@ -225,19 +225,29 @@ def resolve_facility_locations(facility_ids, headers):
     return facility_map
 
 
-def format_location(segment, direction, facility_map):
-    """Resolve a segment's origin or destination to 'City, State'.
-    direction is 'Origin' or 'Destination'."""
+def get_location_parts(segment, direction, facility_map):
+    """Return (city, state, display_string) for a segment's origin or destination."""
     addr = segment.get(f"{direction}Address")
     if addr and isinstance(addr, dict):
-        city = addr.get("City", "")
-        state = addr.get("State", "")
-        formatted = format_city_state(city, state)
-        if formatted:
-            return formatted
+        city = (addr.get("City") or "").strip()
+        state = (addr.get("State") or "").strip()
+        if city or state:
+            return city.title(), state.upper(), format_city_state(city, state)
 
     fid = segment.get(f"{direction}FacilityId", "-")
-    return facility_map.get(fid, fid)
+    resolved = facility_map.get(fid)
+    if resolved and ", " in resolved:
+        parts = resolved.rsplit(", ", 1)
+        return parts[0], parts[1], resolved
+    elif resolved:
+        return resolved, "", resolved
+    return "", "", fid
+
+
+def format_location(segment, direction, facility_map):
+    """Resolve a segment's origin or destination to 'City, State' display string."""
+    _, _, display = get_location_parts(segment, direction, facility_map)
+    return display
 
 
 def transform_trip(raw_trip, facility_map=None):
@@ -257,7 +267,7 @@ def transform_trip(raw_trip, facility_map=None):
     origin_fid = first_seg.get("OriginFacilityId", "-")
     destination_fid = last_seg.get("DestinationFacilityId", "-")
     origin = format_location(first_seg, "Origin", fmap) if first_seg else "-"
-    destination = format_location(last_seg, "Destination", fmap) if last_seg else "-"
+    dest_city, dest_state, destination = get_location_parts(last_seg, "Destination", fmap) if last_seg else ("", "", "-")
 
     pickup_start = first_seg.get("PlannedOriginDepartureStart")
     delivery_end = last_seg.get("PlannedDestinationArrivalStart")
@@ -299,6 +309,8 @@ def transform_trip(raw_trip, facility_map=None):
         "StatusCode": status_code,
         "Origin": origin,
         "Destination": destination,
+        "DestinationCity": dest_city,
+        "DestinationState": dest_state,
         "OriginFacility": origin_fid,
         "DestinationFacility": destination_fid,
         "PickupWindow": format_dt_short(pickup_start),
@@ -459,6 +471,14 @@ def search_trips():
                 s_lo = int(seg_min) if seg_min is not None else 1
                 s_hi = int(seg_max) if seg_max is not None else 9999
                 trips = [t for t in trips if s_lo <= t.get("TotalSegments", 0) <= s_hi]
+
+            dest_city_filter = (filters.get("destinationCity") or "").strip().lower()
+            if dest_city_filter:
+                trips = [t for t in trips if dest_city_filter in (t.get("DestinationCity") or "").lower()]
+
+            dest_state_filter = (filters.get("destinationState") or "").strip().upper()
+            if dest_state_filter:
+                trips = [t for t in trips if (t.get("DestinationState") or "").upper() == dest_state_filter]
 
             return jsonify({
                 "success": True,
