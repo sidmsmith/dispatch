@@ -166,6 +166,15 @@ def calc_duration(start_iso, end_iso):
         return "-"
 
 
+def format_city_state(city, state):
+    """Format city as Title Case and state as UPPER, return 'City, ST'."""
+    c = city.strip().title() if city else ""
+    s = state.strip().upper() if state else ""
+    if c and s:
+        return f"{c}, {s}"
+    return c or s or ""
+
+
 def resolve_facility_locations(facility_ids, headers):
     """Batch-resolve FacilityIds to 'City, State' via facility search API.
     Returns dict of {FacilityId: 'City, ST'} for each resolved facility."""
@@ -198,12 +207,9 @@ def resolve_facility_locations(facility_ids, headers):
                     addr = fac.get("FacilityAddress") or {}
                     city = addr.get("City", "")
                     state = addr.get("State", "")
-                    if city and state:
-                        facility_map[fid] = f"{city}, {state}"
-                    elif city:
-                        facility_map[fid] = city
-                    elif state:
-                        facility_map[fid] = state
+                    formatted = format_city_state(city, state)
+                    if formatted:
+                        facility_map[fid] = formatted
         except Exception as e:
             print(f"[FacilityLookup] Error resolving {fid}: {e}")
 
@@ -218,10 +224,9 @@ def format_location(segment, direction, facility_map):
     if addr and isinstance(addr, dict):
         city = addr.get("City", "")
         state = addr.get("State", "")
-        if city and state:
-            return f"{city}, {state}"
-        if city:
-            return city
+        formatted = format_city_state(city, state)
+        if formatted:
+            return formatted
 
     fid = segment.get(f"{direction}FacilityId", "-")
     return facility_map.get(fid, fid)
