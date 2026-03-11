@@ -145,7 +145,7 @@ def format_dt_short(iso_str):
         return "-"
     try:
         dt = datetime.fromisoformat(iso_str)
-        return dt.strftime("%m/%d %H:%M")
+        return dt.strftime("%m/%d/%y %H:%M")
     except:
         return iso_str[:16] if len(iso_str) >= 16 else iso_str
 
