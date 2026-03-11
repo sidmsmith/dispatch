@@ -242,6 +242,43 @@ def format_location(segment, direction, facility_map):
     return display
 
 
+def build_stop_key(facility_id, lat, lon):
+    """Build a stable stop key from facility or lat/lon for de-duplication."""
+    if facility_id:
+        return ("FACILITY", facility_id)
+    if lat is not None and lon is not None:
+        return ("GEO", f"{lat:.6f}|{lon:.6f}")
+    return ("UNKNOWN", "UNKNOWN")
+
+
+def compute_trip_stops(segments_sorted):
+    """Compute ordered stops with consecutive de-duplication.
+    First stop = origin of first segment; then each segment's destination in order.
+    Only skips a stop if it matches the immediately previous stop."""
+    if not segments_sorted:
+        return 0, []
+
+    stops = []
+    first = segments_sorted[0]
+    first_key = build_stop_key(
+        first.get("OriginFacilityId"),
+        first.get("OriginLatitude"),
+        first.get("OriginLongitude")
+    )
+    stops.append(first_key)
+
+    for seg in segments_sorted:
+        dest_key = build_stop_key(
+            seg.get("DestinationFacilityId"),
+            seg.get("DestinationLatitude"),
+            seg.get("DestinationLongitude")
+        )
+        if dest_key != stops[-1]:
+            stops.append(dest_key)
+
+    return len(stops), stops
+
+
 def transform_trip(raw_trip, facility_map=None):
     """Transform a raw Manhattan API trip into the frontend display format"""
     segments = raw_trip.get("TripSegment", []) or []
@@ -286,12 +323,7 @@ def transform_trip(raw_trip, facility_map=None):
                 "Destination": s.get("DestinationFacilityId", "-")
             })
 
-    unique_facilities = set()
-    for s in segments_sorted:
-        if s.get("OriginFacilityId"):
-            unique_facilities.add(s["OriginFacilityId"])
-        if s.get("DestinationFacilityId"):
-            unique_facilities.add(s["DestinationFacilityId"])
+    stop_count, _ = compute_trip_stops(segments_sorted)
 
     driver = raw_trip.get("AssignedDriverId") or "-"
 
@@ -320,7 +352,7 @@ def transform_trip(raw_trip, facility_map=None):
         "DeliveryWindow": format_dt_short(delivery_end),
         "TotalDurationMinutes": calc_duration_minutes(pickup_start, delivery_end),
         "DurationHours": duration_hours,
-        "TotalStops": len(unique_facilities),
+        "TotalStops": stop_count,
         "TotalSegments": len(segments_sorted),
         "TotalDistance": f"{total_distance:.1f} mi",
         "Backhaul": "Yes" if len(segments_sorted) > 2 else "No",
@@ -490,6 +522,13 @@ def search_trips():
                 s_lo = int(seg_min) if seg_min is not None else 1
                 s_hi = int(seg_max) if seg_max is not None else 9999
                 trips = [t for t in trips if s_lo <= t.get("TotalSegments", 0) <= s_hi]
+
+            stops_min = filters.get("stopsMin")
+            stops_max = filters.get("stopsMax")
+            if stops_min is not None or stops_max is not None:
+                st_lo = int(stops_min) if stops_min is not None else 1
+                st_hi = int(stops_max) if stops_max is not None else 9999
+                trips = [t for t in trips if st_lo <= t.get("TotalStops", 0) <= st_hi]
 
             dest_city_filter = (filters.get("destinationCity") or "").strip().lower()
             if dest_city_filter:
