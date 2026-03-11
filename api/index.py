@@ -317,6 +317,49 @@ def resolve_home_facility_ids(headers):
     return set()
 
 
+def resolve_tractor_number(tractor_asset_id, terminal_id, headers):
+    """Resolve the actual TractorNumber from a HomeAssetId (AssignedTractorAssetId).
+    Searches tractor instances and returns the TractorNumber for the assign payload."""
+    if not tractor_asset_id:
+        return None
+
+    query = f"HomeAssetId = '{tractor_asset_id}'"
+    if terminal_id:
+        query += f" and HomeTerminalId = '{terminal_id}'"
+
+    url = f"https://{API_HOST}/asset-manager/api/asset-manager/tractor/search"
+    payload = {
+        "Query": query,
+        "Template": {
+            "TractorId": None,
+            "TractorNumber": None,
+            "HomeAssetId": None,
+            "HomeTerminalId": None,
+            "Active": None
+        },
+        "Size": 20
+    }
+
+    try:
+        print(f"[TractorLookup] Resolving TractorNumber for HomeAssetId='{tractor_asset_id}', Terminal='{terminal_id}'")
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+        if r.ok:
+            data = r.json().get("data", []) or []
+            if not data:
+                print(f"[TractorLookup] No tractor instances found")
+                return None
+            active = next((t for t in data if t.get("Active") is not False), data[0])
+            tractor_num = active.get("TractorNumber")
+            print(f"[TractorLookup] Resolved to TractorNumber='{tractor_num}'")
+            return tractor_num
+        else:
+            print(f"[TractorLookup] HTTP {r.status_code}: {r.text[:300]}")
+    except Exception as e:
+        print(f"[TractorLookup] Exception: {e}")
+
+    return None
+
+
 def resolve_driver_names(driver_codes, headers):
     """Batch-resolve driver codes to display names via a single driver search API call.
     Returns dict of {DriverCode: 'First Last'} for each resolved driver."""
@@ -976,8 +1019,7 @@ def precheck_driver():
 
 @app.route('/api/assign_trip', methods=['POST'])
 def assign_trip():
-    """Assign a driver to a trip via Dispatch /assignAssetResources,
-    preserving existing tractor and trailer assignments."""
+    """Assign a driver to a trip via Dispatch /assignAssetResources."""
     org = request.json.get('org')
     token = request.json.get('token')
     trip_id = request.json.get('trip_id')
@@ -996,6 +1038,10 @@ def assign_trip():
         "selectedLocation": f"{org}-DM1"
     }
 
+    tractor_asset_id = assign_data.get("TractorAssetId")
+    terminal_id = assign_data.get("TerminalId")
+    tractor_number = resolve_tractor_number(tractor_asset_id, terminal_id, headers) if tractor_asset_id else None
+
     segments_payload = []
     for seg in assign_data.get("Segments", []):
         segments_payload.append({
@@ -1009,10 +1055,9 @@ def assign_trip():
         "DriverCode": driver_code,
         "DriverCode2": None,
         "DriverCode3": None,
-        "TractorNumber": assign_data.get("TractorAssetId"),
+        "TractorNumber": tractor_number,
         "Segments": segments_payload,
-        "KeepTractorAssignment": True,
-        "OverrideAllWarnings": True
+        "KeepTractorAssignment": False
     }
 
     url = f"https://{API_HOST}/dispatch/api/dispatch/assignAssetResources"
