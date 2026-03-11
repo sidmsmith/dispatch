@@ -342,6 +342,8 @@
       position: sticky;
       top: 0;
       background: var(--header-bg);
+      cursor: pointer;
+      user-select: none;
       color: var(--header-text);
       padding: 0.65rem 0.5rem;
       font-weight: 600;
@@ -366,6 +368,42 @@
       padding: 0.6rem 0.5rem;
       white-space: nowrap;
     }
+    .trips-table thead th.sorted { font-weight: 800; }
+    .trips-table thead th .sort-arrow { font-size: 0.65rem; margin-left: 3px; opacity: 0.7; }
+    .trips-table thead th.drag-over { background: var(--primary-color); color: #fff; opacity: 0.85; }
+
+    /* Column config popover */
+    .col-config-btn {
+      background: none; border: 1px solid var(--input-border); border-radius: 6px;
+      padding: 0.25rem 0.6rem; font-size: 0.82rem; color: var(--text-muted);
+      cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .col-config-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
+    .col-config-popover {
+      display: none; position: absolute; top: 2.2rem; right: 0;
+      background: var(--card-bg); border: 1px solid var(--border-color);
+      border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+      z-index: 1000; width: 260px; max-height: 420px; overflow-y: auto;
+    }
+    .col-config-popover.visible { display: block; }
+    .col-config-popover .pop-header {
+      padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border-color);
+      font-weight: 600; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center;
+    }
+    .col-config-popover .pop-header button {
+      background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.78rem;
+    }
+    .col-config-popover .pop-header button:hover { color: var(--primary-color); }
+    .col-config-list { list-style: none; margin: 0; padding: 0.3rem 0; }
+    .col-config-list li {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.4rem 0.8rem; font-size: 0.82rem; cursor: grab; transition: background 0.15s;
+    }
+    .col-config-list li:hover { background: var(--row-hover); }
+    .col-config-list li.dragging { opacity: 0.4; }
+    .col-config-list li .drag-handle { color: var(--text-muted); font-size: 0.7rem; cursor: grab; }
+    .col-config-list li label { flex: 1; cursor: pointer; margin: 0; display: flex; align-items: center; gap: 0.4rem; }
+    .col-config-list li input[type="checkbox"] { accent-color: var(--primary-color); }
 
     /* Detail panel */
     .detail-panel {
@@ -898,6 +936,13 @@
       <div class="d-flex align-items-center mb-2">
         <button class="btn btn-sm btn-outline-secondary me-3" id="backToFilters"><i class="fas fa-arrow-left"></i> Filters</button>
         <span class="trip-count" id="tripCount"></span>
+        <div style="margin-left:auto;position:relative;" class="d-none d-lg-block">
+          <button class="col-config-btn" id="colConfigBtn"><i class="fas fa-columns"></i> Columns</button>
+          <div class="col-config-popover" id="colConfigPopover">
+            <div class="pop-header"><span>Columns</span><button id="colResetBtn">Reset</button></div>
+            <ul class="col-config-list" id="colConfigList"></ul>
+          </div>
+        </div>
       </div>
       <div class="chips-bar" id="chipsBar"></div>
 
@@ -915,25 +960,7 @@
       <div class="trips-layout" id="tripsLayout" style="display:none;">
         <div class="trips-table-wrapper">
           <table class="trips-table" id="tripsTable">
-            <thead>
-              <tr>
-                <th>Trip ID</th>
-                <th>Status</th>
-                <th>Origin</th>
-                <th>Destination</th>
-                <th>Origin Facility</th>
-                <th>Dest Facility</th>
-                <th>Pickup</th>
-                <th>Delivery</th>
-                <th>Duration</th>
-                <th>Stops</th>
-                <th>Segments</th>
-                <th>Backhaul</th>
-                <th>Distance</th>
-                <th>Carrier</th>
-                <th>Driver</th>
-              </tr>
-            </thead>
+            <thead id="tripsHead"><tr></tr></thead>
             <tbody id="tripsBody"></tbody>
           </table>
         </div>
@@ -1096,6 +1123,185 @@
     let selectedTrip = null;
     let selectedTripIdx = -1;
     let currentFilters = {};
+
+    // === COLUMN CONFIGURATION ===
+    const COL_STORAGE_KEY = 'dispatch_column_config';
+    const DEFAULT_COLUMNS = [
+      { key: 'TripId',       label: 'Trip ID',          visible: true, render: t => `<td style="font-weight:600;color:var(--primary-color)">${t.TripId}</td>`, sortVal: t => t.TripId },
+      { key: 'Status',       label: 'Status',           visible: true, render: t => `<td>${t.Status}</td>`, sortVal: t => t.Status },
+      { key: 'Origin',       label: 'Origin',           visible: true, render: t => `<td>${t.Origin}</td>`, sortVal: t => t.Origin },
+      { key: 'Destination',  label: 'Destination',      visible: true, render: t => `<td>${t.Destination}</td>`, sortVal: t => t.Destination },
+      { key: 'OriginFac',    label: 'Origin Facility',  visible: true, render: t => `<td style="font-size:0.78rem;color:var(--text-muted)">${t.OriginFacility||'-'}</td>`, sortVal: t => t.OriginFacility||'' },
+      { key: 'DestFac',      label: 'Dest Facility',    visible: true, render: t => `<td style="font-size:0.78rem;color:var(--text-muted)">${t.DestinationFacility||'-'}</td>`, sortVal: t => t.DestinationFacility||'' },
+      { key: 'Pickup',       label: 'Pickup',           visible: true, render: t => `<td>${fmtDt(t.PickupWindow)}</td>`, sortVal: t => t.PickupWindow||'' },
+      { key: 'Delivery',     label: 'Delivery',         visible: true, render: t => `<td>${fmtDt(t.DeliveryWindow)}</td>`, sortVal: t => t.DeliveryWindow||'' },
+      { key: 'Duration',     label: 'Duration',         visible: true, render: t => `<td>${fmtDuration(t.TotalDurationMinutes)}</td>`, sortVal: t => t.TotalDurationMinutes||0 },
+      { key: 'Stops',        label: 'Stops',            visible: true, render: t => `<td>${t.TotalStops}</td>`, sortVal: t => t.TotalStops||0 },
+      { key: 'Segments',     label: 'Segments',         visible: true, render: t => `<td>${t.TotalSegments}</td>`, sortVal: t => t.TotalSegments||0 },
+      { key: 'Backhaul',     label: 'Backhaul',         visible: true, render: t => `<td>${t.Backhaul||'-'}</td>`, sortVal: t => t.Backhaul||'' },
+      { key: 'Distance',     label: 'Distance',         visible: true, render: t => `<td>${t.TotalDistance||'-'}</td>`, sortVal: t => parseFloat(t.TotalDistance)||0 },
+      { key: 'Carrier',      label: 'Carrier',          visible: true, render: t => `<td>${t.Carrier||'-'}</td>`, sortVal: t => t.Carrier||'' },
+      { key: 'Driver',       label: 'Driver',           visible: true, render: t => `<td>${t.CurrentDriver}</td>`, sortVal: t => t.CurrentDriver||'' },
+    ];
+
+    function cloneColumns(src) { return src.map(c => ({ ...c })); }
+    let columns = cloneColumns(DEFAULT_COLUMNS);
+    let sortKey = null;
+    let sortAsc = true;
+
+    function saveColumnConfig() {
+      const cfg = columns.map(c => ({ key: c.key, visible: c.visible }));
+      localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(cfg));
+    }
+
+    function restoreColumnConfig() {
+      const raw = localStorage.getItem(COL_STORAGE_KEY);
+      if (!raw) return;
+      try {
+        const saved = JSON.parse(raw);
+        const ordered = [];
+        for (const s of saved) {
+          const def = DEFAULT_COLUMNS.find(d => d.key === s.key);
+          if (def) ordered.push({ ...def, visible: s.visible });
+        }
+        for (const def of DEFAULT_COLUMNS) {
+          if (!ordered.find(o => o.key === def.key)) ordered.push({ ...def });
+        }
+        columns = ordered;
+      } catch(e) { /* ignore corrupt data */ }
+    }
+
+    function resetColumnConfig() {
+      columns = cloneColumns(DEFAULT_COLUMNS);
+      sortKey = null; sortAsc = true;
+      localStorage.removeItem(COL_STORAGE_KEY);
+      renderTableHeader();
+      renderTripsTable();
+      renderColConfigList();
+    }
+
+    function visibleColumns() { return columns.filter(c => c.visible); }
+
+    // === RENDER TABLE HEADER ===
+    function renderTableHeader() {
+      const headRow = document.querySelector('#tripsHead tr');
+      headRow.innerHTML = visibleColumns().map(c => {
+        const isSorted = sortKey === c.key;
+        const arrow = isSorted ? (sortAsc ? ' <span class="sort-arrow">▲</span>' : ' <span class="sort-arrow">▼</span>') : '';
+        return `<th data-col="${c.key}" draggable="true" class="${isSorted ? 'sorted' : ''}">${c.label}${arrow}</th>`;
+      }).join('');
+      attachHeaderListeners();
+    }
+
+    function attachHeaderListeners() {
+      const ths = document.querySelectorAll('#tripsHead th');
+      let dragSrcKey = null;
+
+      ths.forEach(th => {
+        th.addEventListener('click', () => {
+          const key = th.dataset.col;
+          if (sortKey === key) { sortAsc = !sortAsc; }
+          else { sortKey = key; sortAsc = true; }
+          applySortAndRender();
+        });
+
+        th.addEventListener('dragstart', e => {
+          dragSrcKey = th.dataset.col;
+          e.dataTransfer.effectAllowed = 'move';
+          th.style.opacity = '0.4';
+        });
+        th.addEventListener('dragend', () => { th.style.opacity = ''; });
+        th.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; th.classList.add('drag-over'); });
+        th.addEventListener('dragleave', () => { th.classList.remove('drag-over'); });
+        th.addEventListener('drop', e => {
+          e.preventDefault();
+          th.classList.remove('drag-over');
+          const dropKey = th.dataset.col;
+          if (!dragSrcKey || dragSrcKey === dropKey) return;
+          const srcIdx = columns.findIndex(c => c.key === dragSrcKey);
+          const dstIdx = columns.findIndex(c => c.key === dropKey);
+          if (srcIdx < 0 || dstIdx < 0) return;
+          const [moved] = columns.splice(srcIdx, 1);
+          columns.splice(dstIdx, 0, moved);
+          saveColumnConfig();
+          renderTableHeader();
+          renderTripsTable();
+          renderColConfigList();
+        });
+      });
+    }
+
+    function applySortAndRender() {
+      if (sortKey) {
+        const colDef = columns.find(c => c.key === sortKey);
+        if (colDef) {
+          allTrips.sort((a, b) => {
+            let va = colDef.sortVal(a), vb = colDef.sortVal(b);
+            if (typeof va === 'number' && typeof vb === 'number') return sortAsc ? va - vb : vb - va;
+            va = String(va).toLowerCase(); vb = String(vb).toLowerCase();
+            if (va < vb) return sortAsc ? -1 : 1;
+            if (va > vb) return sortAsc ? 1 : -1;
+            return 0;
+          });
+        }
+      }
+      renderTableHeader();
+      renderTripsTable();
+    }
+
+    // === COLUMN CONFIG POPOVER ===
+    const colConfigBtn = document.getElementById('colConfigBtn');
+    const colConfigPopover = document.getElementById('colConfigPopover');
+    const colConfigList = document.getElementById('colConfigList');
+    const colResetBtn = document.getElementById('colResetBtn');
+
+    colConfigBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      colConfigPopover.classList.toggle('visible');
+      if (colConfigPopover.classList.contains('visible')) renderColConfigList();
+    });
+    document.addEventListener('click', e => {
+      if (!colConfigPopover.contains(e.target) && e.target !== colConfigBtn) colConfigPopover.classList.remove('visible');
+    });
+    colResetBtn.addEventListener('click', () => { resetColumnConfig(); });
+
+    function renderColConfigList() {
+      let dragIdx = null;
+      colConfigList.innerHTML = columns.map((c, i) => `
+        <li draggable="true" data-idx="${i}">
+          <span class="drag-handle"><i class="fas fa-grip-vertical"></i></span>
+          <label><input type="checkbox" data-key="${c.key}" ${c.visible ? 'checked' : ''} /> ${c.label}</label>
+        </li>
+      `).join('');
+
+      colConfigList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const col = columns.find(c => c.key === cb.dataset.key);
+          if (col) { col.visible = cb.checked; saveColumnConfig(); renderTableHeader(); renderTripsTable(); }
+        });
+      });
+
+      const items = colConfigList.querySelectorAll('li');
+      items.forEach(li => {
+        li.addEventListener('dragstart', e => { dragIdx = parseInt(li.dataset.idx); li.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+        li.addEventListener('dragend', () => { li.classList.remove('dragging'); });
+        li.addEventListener('dragover', e => { e.preventDefault(); });
+        li.addEventListener('drop', e => {
+          e.preventDefault();
+          const dropIdx = parseInt(li.dataset.idx);
+          if (dragIdx == null || dragIdx === dropIdx) return;
+          const [moved] = columns.splice(dragIdx, 1);
+          columns.splice(dropIdx, 0, moved);
+          saveColumnConfig();
+          renderTableHeader();
+          renderTripsTable();
+          renderColConfigList();
+          dragIdx = null;
+        });
+      });
+    }
+
+    restoreColumnConfig();
 
     // === URL PARAMS (auto-auth) ===
     const startupParams = new URLSearchParams(window.location.search);
@@ -1522,6 +1728,8 @@
       if (res.success && res.trips && res.trips.length > 0) {
         allTrips = res.trips;
         tripCount.textContent = `${res.count} trips found`;
+        sortKey = null; sortAsc = true;
+        renderTableHeader();
         renderTripsTable();
         renderTripCards();
         tripsLayout.style.display = 'flex';
@@ -1552,25 +1760,10 @@
 
     // === RENDER TABLE (desktop) ===
     function renderTripsTable() {
-      tripsBody.innerHTML = allTrips.map((t, i) => `
-        <tr data-idx="${i}">
-          <td style="font-weight:600;color:var(--primary-color)">${t.TripId}</td>
-          <td>${t.Status}</td>
-          <td>${t.Origin}</td>
-          <td>${t.Destination}</td>
-          <td style="font-size:0.78rem;color:var(--text-muted)">${t.OriginFacility || '-'}</td>
-          <td style="font-size:0.78rem;color:var(--text-muted)">${t.DestinationFacility || '-'}</td>
-          <td>${fmtDt(t.PickupWindow)}</td>
-          <td>${fmtDt(t.DeliveryWindow)}</td>
-          <td>${fmtDuration(t.TotalDurationMinutes)}</td>
-          <td>${t.TotalStops}</td>
-          <td>${t.TotalSegments}</td>
-          <td>${t.Backhaul || '-'}</td>
-          <td>${t.TotalDistance || '-'}</td>
-          <td>${t.Carrier || '-'}</td>
-          <td>${t.CurrentDriver}</td>
-        </tr>
-      `).join('');
+      const vis = visibleColumns();
+      tripsBody.innerHTML = allTrips.map((t, i) =>
+        `<tr data-idx="${i}">${vis.map(c => c.render(t)).join('')}</tr>`
+      ).join('');
 
       tripsBody.querySelectorAll('tr').forEach(row => {
         row.addEventListener('click', () => {
