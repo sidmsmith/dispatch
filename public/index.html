@@ -413,7 +413,9 @@
     .detail-nav-arrows {
       display: flex;
       align-items: center;
-      gap: 0.25rem;
+      justify-content: center;
+      gap: 1.5rem;
+      margin-bottom: 0.35rem;
     }
     .detail-nav-btn {
       background: none;
@@ -901,16 +903,14 @@
         </div>
         <div class="detail-panel" id="detailPanel">
           <div class="detail-panel-header">
+            <div class="detail-nav-arrows">
+              <button class="detail-nav-btn hidden" id="detailPrev" title="Previous trip"><i class="fas fa-chevron-left"></i></button>
+              <button class="detail-nav-btn hidden" id="detailNext" title="Next trip"><i class="fas fa-chevron-right"></i></button>
+            </div>
             <div class="detail-header">
-              <div style="display:flex;align-items:center;gap:0.5rem;">
-                <div class="detail-nav-arrows">
-                  <button class="detail-nav-btn hidden" id="detailPrev" title="Previous trip"><i class="fas fa-chevron-left"></i></button>
-                  <button class="detail-nav-btn hidden" id="detailNext" title="Next trip"><i class="fas fa-chevron-right"></i></button>
-                </div>
-                <div>
-                  <small style="color:var(--text-muted);">Trip</small>
-                  <h5 id="detailTripId" style="margin:0;font-weight:700;"></h5>
-                </div>
+              <div>
+                <small style="color:var(--text-muted);">Trip</small>
+                <h5 id="detailTripId" style="margin:0;font-weight:700;"></h5>
               </div>
               <button class="detail-close" id="detailClose"><i class="fas fa-times"></i></button>
             </div>
@@ -964,16 +964,14 @@
   <div class="bottom-sheet" id="bottomSheet">
     <div class="sheet-header">
       <div class="bottom-sheet-handle"></div>
+      <div class="detail-nav-arrows">
+        <button class="detail-nav-btn hidden" id="sheetPrev" title="Previous trip"><i class="fas fa-chevron-left"></i></button>
+        <button class="detail-nav-btn hidden" id="sheetNext" title="Next trip"><i class="fas fa-chevron-right"></i></button>
+      </div>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.5rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;">
-          <div class="detail-nav-arrows">
-            <button class="detail-nav-btn hidden" id="sheetPrev" title="Previous trip"><i class="fas fa-chevron-left"></i></button>
-            <button class="detail-nav-btn hidden" id="sheetNext" title="Next trip"><i class="fas fa-chevron-right"></i></button>
-          </div>
-          <div>
-            <small style="color:var(--text-muted);">Trip</small>
-            <h5 id="sheetTripId" style="margin:0;font-weight:700;"></h5>
-          </div>
+        <div>
+          <small style="color:var(--text-muted);">Trip</small>
+          <h5 id="sheetTripId" style="margin:0;font-weight:700;"></h5>
         </div>
         <button class="detail-close" id="sheetClose"><i class="fas fa-times"></i></button>
       </div>
