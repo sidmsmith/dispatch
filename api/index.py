@@ -121,6 +121,9 @@ def equipment_types():
                 types = data
             else:
                 types = []
+            for t in types:
+                if t.get("Description"):
+                    t["Description"] = t["Description"].strip()
             types.sort(key=lambda t: (t.get("Description") or "").lower())
             return jsonify({"success": True, "types": types})
         else:
