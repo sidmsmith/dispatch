@@ -1037,7 +1037,7 @@
       const stateSelect = document.getElementById('filterState');
       const state = stateSelect.value;
       if (city) f.destinationCity = city;
-      if (state) f.destinationState = stateSelect.options[stateSelect.selectedIndex].textContent;
+      if (state) f.destinationState = state;
 
       const dMin = parseInt(document.getElementById('durationMin').value);
       const dMax = parseInt(document.getElementById('durationMax').value);
@@ -1063,7 +1063,10 @@
       if (backhaul !== 'any') f.backhaul = backhaul === 'yes' ? 'Has Backhaul' : 'No Backhaul';
 
       const equip = document.getElementById('filterEquipment');
-      if (equip.value) f.requiredEquipment = equip.options[equip.selectedIndex].textContent;
+      if (equip.value) {
+        f.requiredEquipment = equip.value;
+        f.equipmentTypeId = equip.value;
+      }
 
       const from = document.getElementById('pickupFrom').value;
       const to = document.getElementById('pickupTo').value;
@@ -1086,7 +1089,7 @@
       pickupRange: 'Pickup Range'
     };
 
-    const HIDDEN_CHIP_KEYS = new Set(['pickupFrom', 'pickupTo', 'durationMin', 'durationMax', 'segmentsMin', 'segmentsMax']);
+    const HIDDEN_CHIP_KEYS = new Set(['pickupFrom', 'pickupTo', 'durationMin', 'durationMax', 'segmentsMin', 'segmentsMax', 'equipmentTypeId']);
 
     function renderChips() {
       chipsBar.innerHTML = '';
@@ -1112,6 +1115,9 @@
           if (key === 'segmentsRange') {
             delete currentFilters['segmentsMin'];
             delete currentFilters['segmentsMax'];
+          }
+          if (key === 'requiredEquipment') {
+            delete currentFilters['equipmentTypeId'];
           }
           clearFilterField(key);
           renderChips();

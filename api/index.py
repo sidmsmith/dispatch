@@ -268,6 +268,41 @@ def search_trips():
 
     send_ha_message({"event": "dispatch_search_trips", "org": org, "filters": filters})
 
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "selectedOrganization": org,
+        "selectedLocation": f"{org}-DM1"
+    }
+
+    valid_trailer_asset_ids = None
+    equipment_type_id = filters.get("equipmentTypeId")
+    if equipment_type_id:
+        try:
+            asset_url = f"https://{API_HOST}/asset-manager/api/asset-manager/trailerAsset/search"
+            asset_payload = {
+                "Query": f"EquipmentTypeId = '{equipment_type_id}'",
+                "Template": {
+                    "TrailerAssetId": None,
+                    "EquipmentTypeId": None,
+                    "CarrierId": None,
+                    "TerminalId": None
+                },
+                "Sort": [],
+                "Size": 200
+            }
+            print(f"[SearchTrips] Fetching trailer assets for EquipmentTypeId={equipment_type_id}")
+            ar = requests.post(asset_url, json=asset_payload, headers=headers, timeout=30, verify=False)
+            if ar.ok:
+                asset_body = ar.json()
+                asset_data = asset_body.get("data", []) or []
+                valid_trailer_asset_ids = {a.get("TrailerAssetId") for a in asset_data if a.get("TrailerAssetId")}
+                print(f"[SearchTrips] Found {len(valid_trailer_asset_ids)} trailer assets: {valid_trailer_asset_ids}")
+            else:
+                print(f"[SearchTrips] Trailer asset search failed: {ar.status_code}")
+        except Exception as e:
+            print(f"[SearchTrips] Trailer asset search exception: {e}")
+
     query_parts = ["TripSegment.Sequence = '1'"]
 
     pickup_from = filters.get("pickupFrom")
@@ -280,12 +315,6 @@ def search_trips():
     query_string = " and ".join(query_parts)
 
     url = f"https://{API_HOST}/shipment/api/shipment/trip/search"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-        "selectedOrganization": org,
-        "selectedLocation": f"{org}-DM1"
-    }
     payload = {
         "Query": query_string,
         "Template": {
@@ -309,7 +338,15 @@ def search_trips():
         if r.ok:
             body = r.json()
             raw_trips = body.get("data", []) or []
-            total_count = body.get("header", {}).get("totalCount", len(raw_trips))
+
+            if valid_trailer_asset_ids is not None:
+                filtered = []
+                for trip in raw_trips:
+                    segs = trip.get("TripSegment", []) or []
+                    if any(s.get("AssignedTrailerAssetId") in valid_trailer_asset_ids for s in segs):
+                        filtered.append(trip)
+                print(f"[SearchTrips] Equipment filter: {len(raw_trips)} -> {len(filtered)} trips")
+                raw_trips = filtered
 
             trips = [transform_trip(t) for t in raw_trips]
 
