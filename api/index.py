@@ -410,7 +410,7 @@ def search_trips():
     pickup_from = filters.get("pickupFrom")
     pickup_to = filters.get("pickupTo")
 
-    query_parts = ["TripStatusId = '2000'"]
+    query_parts = ["TripSegment.Sequence = '1'"]
     if pickup_from:
         query_parts.append(f"TripSegment.PlannedOriginDepartureStart >= '{pickup_from}:00'")
     if pickup_to:
