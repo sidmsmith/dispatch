@@ -468,6 +468,7 @@ def transform_trip(raw_trip, facility_map=None, home_facility_ids=None):
             "TractorAssetId": raw_trip.get("AssignedTractorAssetId"),
             "CarrierId": raw_trip.get("AssignedCarrierId"),
             "TerminalId": derive_trip_terminal(segments_sorted),
+            "StatusCode": status_code,
             "Segments": [{
                 "SegmentId": s.get("SegmentId"),
                 "ShipmentId": s.get("ShipmentId"),
@@ -668,16 +669,25 @@ def trip_detail():
 
 @app.route('/api/precheck_driver', methods=['POST'])
 def precheck_driver():
-    """Validate that a driver is suitable for a trip before assignment.
-    Checks: driver exists, is active, carrier matches, terminal matches."""
+    """Validate driver + tractor before assignment.
+    Checks: trip status, driver exists/active/carrier/terminal,
+    tractor exists/active/carrier/terminal."""
     org = request.json.get('org')
     token = request.json.get('token')
     driver_code = request.json.get('driver_code')
     carrier_id = request.json.get('carrier_id')
     terminal_id = request.json.get('terminal_id')
+    tractor_asset_id = request.json.get('tractor_asset_id')
+    status_code = request.json.get('status_code')
 
     if not all([org, token, driver_code]):
         return jsonify({"success": False, "error": "Missing required fields"})
+
+    NON_ASSIGNABLE_STATUSES = {"4000": "Delivered", "5000": "Completed", "6000": "Cancelled"}
+    if status_code and status_code in NON_ASSIGNABLE_STATUSES:
+        label = NON_ASSIGNABLE_STATUSES[status_code]
+        return jsonify({"success": False,
+            "error": f"Trip is in '{label}' status and cannot accept driver assignment"})
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -686,37 +696,60 @@ def precheck_driver():
         "selectedLocation": f"{org}-DM1"
     }
 
-    url = f"https://{API_HOST}/asset-manager/api/asset-manager/driver/search"
-    payload = {
-        "Query": f"DriverCode = '{driver_code}'",
-        "Template": {
-            "DriverId": None,
-            "DriverCode": None,
-            "CarrierId": None,
-            "TerminalId": None,
-            "Active": None
-        },
-        "Size": 5
-    }
+    import concurrent.futures
 
-    try:
-        print(f"[PrecheckDriver] Looking up DriverCode='{driver_code}'")
+    driver_result = {"data": None, "error": None}
+    tractor_result = {"data": None, "error": None}
+
+    def lookup_driver():
+        url = f"https://{API_HOST}/asset-manager/api/asset-manager/driver/search"
+        payload = {
+            "Query": f"DriverCode = '{driver_code}'",
+            "Template": {"DriverId": None, "DriverCode": None, "CarrierId": None, "TerminalId": None, "Active": None},
+            "Size": 5
+        }
+        print(f"[Precheck] Looking up DriverCode='{driver_code}'")
         r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
-
         if not r.ok:
-            return jsonify({"success": False, "error": f"Driver lookup failed: HTTP {r.status_code}"})
-
+            driver_result["error"] = f"Driver lookup failed: HTTP {r.status_code}"
+            return
         body = r.json()
         data = body.get("data", []) or []
-        if not data:
+        driver_result["data"] = data[0] if data else None
+
+    def lookup_tractor():
+        if not tractor_asset_id:
+            return
+        url = f"https://{API_HOST}/asset-manager/api/asset-manager/tractorAsset/search"
+        payload = {
+            "Query": f"TractorAssetId = '{tractor_asset_id}'",
+            "Template": {"TractorAssetId": None, "CarrierId": None, "TerminalId": None, "Active": None},
+            "Size": 5
+        }
+        print(f"[Precheck] Looking up TractorAssetId='{tractor_asset_id}'")
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+        if not r.ok:
+            tractor_result["error"] = f"Tractor lookup failed: HTTP {r.status_code}"
+            return
+        body = r.json()
+        data = body.get("data", []) or []
+        tractor_result["data"] = data[0] if data else None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        executor.submit(lookup_driver)
+        executor.submit(lookup_tractor)
+
+    try:
+        if driver_result["error"]:
+            return jsonify({"success": False, "error": driver_result["error"]})
+        driver = driver_result["data"]
+        if not driver:
             return jsonify({"success": False, "error": f"Driver code '{driver_code}' not found in the system"})
 
-        driver = data[0]
         driver_active = driver.get("Active")
         driver_carrier = driver.get("CarrierId")
         driver_terminal = driver.get("TerminalId")
-
-        print(f"[PrecheckDriver] Found driver: Active={driver_active}, CarrierId={driver_carrier}, TerminalId={driver_terminal}")
+        print(f"[Precheck] Driver: Active={driver_active}, CarrierId={driver_carrier}, TerminalId={driver_terminal}")
 
         if driver_active is False:
             return jsonify({"success": False, "error": f"Driver '{driver_code}' is inactive"})
@@ -729,16 +762,33 @@ def precheck_driver():
             return jsonify({"success": False,
                 "error": f"Terminal mismatch: trip terminal is '{terminal_id}' but driver '{driver_code}' belongs to terminal '{driver_terminal}'"})
 
-        return jsonify({"success": True, "driver": {
-            "DriverId": driver.get("DriverId"),
-            "DriverCode": driver.get("DriverCode"),
-            "CarrierId": driver_carrier,
-            "TerminalId": driver_terminal,
-            "Active": driver_active
-        }})
+        if tractor_asset_id:
+            if tractor_result["error"]:
+                return jsonify({"success": False, "error": tractor_result["error"]})
+            tractor = tractor_result["data"]
+            if not tractor:
+                return jsonify({"success": False, "error": f"Tractor '{tractor_asset_id}' not found in the system"})
+
+            tractor_active = tractor.get("Active")
+            tractor_carrier = tractor.get("CarrierId")
+            tractor_terminal = tractor.get("TerminalId")
+            print(f"[Precheck] Tractor: Active={tractor_active}, CarrierId={tractor_carrier}, TerminalId={tractor_terminal}")
+
+            if tractor_active is False:
+                return jsonify({"success": False, "error": f"Tractor '{tractor_asset_id}' is inactive"})
+
+            if carrier_id and tractor_carrier and carrier_id != tractor_carrier:
+                return jsonify({"success": False,
+                    "error": f"Carrier mismatch: trip carrier is '{carrier_id}' but tractor '{tractor_asset_id}' belongs to carrier '{tractor_carrier}'"})
+
+            if terminal_id and tractor_terminal and terminal_id != tractor_terminal:
+                return jsonify({"success": False,
+                    "error": f"Terminal mismatch: trip terminal is '{terminal_id}' but tractor '{tractor_asset_id}' belongs to terminal '{tractor_terminal}'"})
+
+        return jsonify({"success": True})
 
     except Exception as e:
-        print(f"[PrecheckDriver] Exception: {e}")
+        print(f"[Precheck] Exception: {e}")
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)})
 

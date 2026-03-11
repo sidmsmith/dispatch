@@ -1737,7 +1737,9 @@
       const precheck = await api('precheck_driver', {
         org, token, driver_code: code,
         carrier_id: assignData.CarrierId || null,
-        terminal_id: assignData.TerminalId || null
+        terminal_id: assignData.TerminalId || null,
+        tractor_asset_id: assignData.TractorAssetId || null,
+        status_code: assignData.StatusCode || null
       });
 
       if (!precheck.success) {
