@@ -130,13 +130,12 @@ def equipment_types():
 
 
 TRIP_STATUS_MAP = {
-    "1000": "Requested",
-    "2000": "Tendered",
-    "3000": "Accepted",
-    "4000": "In Transit",
-    "5000": "Delivered",
-    "8000": "Complete",
-    "9000": "Cancelled"
+    "1000": "Not Dispatched",
+    "2000": "Dispatched",
+    "3000": "In Transit",
+    "4000": "Delivered",
+    "5000": "Completed",
+    "6000": "Cancelled"
 }
 
 
