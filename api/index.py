@@ -242,9 +242,9 @@ def transform_trip(raw_trip, facility_map=None):
     fmap = facility_map or {}
 
     origin_fid = first_seg.get("OriginFacilityId", "-")
-    destination_fid = first_seg.get("DestinationFacilityId", "-")
+    destination_fid = last_seg.get("DestinationFacilityId", "-")
     origin = format_location(first_seg, "Origin", fmap) if first_seg else "-"
-    destination = format_location(first_seg, "Destination", fmap) if first_seg else "-"
+    destination = format_location(last_seg, "Destination", fmap) if last_seg else "-"
 
     pickup_start = first_seg.get("PlannedOriginDepartureStart")
     delivery_end = last_seg.get("PlannedDestinationArrivalStart")
