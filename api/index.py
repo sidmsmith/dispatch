@@ -571,6 +571,7 @@ def transform_trip(raw_trip, facility_map=None, home_facility_ids=None, driver_n
         "CurrentDriver": driver_display,
         "Carrier": raw_trip.get("AssignedCarrierId", "-"),
         "Tractor": raw_trip.get("AssignedTractorAssetId", "-"),
+        "Trailer": first_seg.get("AssignedTrailerNumber") or first_seg.get("AssignedTrailerId") or "-" if first_seg else "-",
         "Overview": {
             "Carrier": raw_trip.get("AssignedCarrierId", "-"),
             "Distance": f"{total_distance:.1f} mi",
