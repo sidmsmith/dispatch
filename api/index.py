@@ -761,6 +761,93 @@ def trip_detail():
     return jsonify({"success": True, "message": "Detail API TBD"})
 
 
+@app.route('/api/trip_stops', methods=['POST'])
+def trip_stops():
+    """Fetch shipment stop data for a list of ShipmentIds.
+    Returns stops grouped by ShipmentId with facility addresses resolved."""
+    org = request.json.get('org')
+    token = request.json.get('token')
+    shipment_ids = request.json.get('shipment_ids', [])
+
+    if not all([org, token]):
+        return jsonify({"success": False, "error": "Missing org/token"})
+
+    if not shipment_ids:
+        return jsonify({"success": True, "stops": {}})
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "selectedOrganization": org,
+        "selectedLocation": f"{org}-DM1"
+    }
+
+    unique_ids = list(set(shipment_ids))
+    in_clause = ",".join(f"'{sid}'" for sid in unique_ids)
+
+    url = f"https://{API_HOST}/shipment/api/shipment/shipment/search"
+    payload = {
+        "Query": f"ShipmentId in ({in_clause})",
+        "Template": {
+            "ShipmentId": None,
+            "Stop": {
+                "StopSequence": None,
+                "FacilityId": None,
+                "StopActionId": {"StopActionId": None},
+                "PlannedArrivalDateTime": None,
+                "PlannedDepartureDateTime": None
+            }
+        },
+        "Size": len(unique_ids)
+    }
+
+    try:
+        print(f"[TripStops] Fetching stops for {len(unique_ids)} shipments")
+        r = requests.post(url, json=payload, headers=headers, timeout=30, verify=False)
+        if not r.ok:
+            return jsonify({"success": False, "error": f"HTTP {r.status_code}: {r.text[:300]}"})
+
+        data = r.json().get("data", []) or []
+
+        all_fac_ids = set()
+        for shipment in data:
+            for stop in (shipment.get("Stop") or []):
+                fid = stop.get("FacilityId")
+                if fid:
+                    all_fac_ids.add(fid)
+
+        facility_map = resolve_facility_locations(all_fac_ids, headers)
+
+        stops_by_shipment = {}
+        for shipment in data:
+            sid = shipment.get("ShipmentId")
+            if not sid:
+                continue
+            raw_stops = shipment.get("Stop") or []
+            sorted_stops = sorted(raw_stops, key=lambda s: s.get("StopSequence", 0))
+            stops_by_shipment[sid] = []
+            for stop in sorted_stops:
+                fid = stop.get("FacilityId") or "-"
+                action_obj = stop.get("StopActionId") or {}
+                action = action_obj.get("StopActionId", "") if isinstance(action_obj, dict) else str(action_obj)
+                stops_by_shipment[sid].append({
+                    "StopSequence": stop.get("StopSequence", 0),
+                    "FacilityId": fid,
+                    "Address": facility_map.get(fid, "-"),
+                    "StopAction": action or "-",
+                    "PlannedArrival": format_dt_short(stop.get("PlannedArrivalDateTime")),
+                    "PlannedDeparture": format_dt_short(stop.get("PlannedDepartureDateTime"))
+                })
+
+        print(f"[TripStops] Resolved stops for {len(stops_by_shipment)}/{len(unique_ids)} shipments")
+        return jsonify({"success": True, "stops": stops_by_shipment})
+
+    except Exception as e:
+        print(f"[TripStops] Exception: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)})
+
+
 @app.route('/api/precheck_driver', methods=['POST'])
 def precheck_driver():
     """Validate driver + tractor before assignment.

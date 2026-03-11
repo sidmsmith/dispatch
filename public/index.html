@@ -499,6 +499,24 @@
       background: var(--header-bg);
       font-weight: 600;
     }
+    .shipments-mini-table .seg-row { cursor: pointer; }
+    .shipments-mini-table .seg-row:hover { background: var(--row-hover); }
+    .shipments-mini-table .seg-row td:first-child .seg-chevron {
+      display: inline-block; font-size: 0.65rem; margin-right: 4px; transition: transform 0.2s; color: var(--text-muted);
+    }
+    .shipments-mini-table .seg-row.expanded td:first-child .seg-chevron { transform: rotate(90deg); }
+    .seg-stops-row { display: none; }
+    .seg-stops-row.visible { display: table-row; }
+    .seg-stops-row td { padding: 0 !important; }
+    .stops-sub-table {
+      width: 100%; font-size: 0.76rem; border-collapse: collapse; background: var(--row-hover);
+    }
+    .stops-sub-table th {
+      background: var(--header-bg); font-weight: 600; padding: 0.25rem 0.4rem;
+      border-bottom: 1px solid var(--border-color); font-size: 0.72rem; color: var(--text-muted);
+    }
+    .stops-sub-table td { padding: 0.25rem 0.4rem; border-bottom: 1px solid var(--border-color); }
+    .stops-loading { padding: 0.5rem; text-align: center; color: var(--text-muted); font-size: 0.78rem; }
     .driver-card {
       display: flex;
       align-items: center;
@@ -1123,6 +1141,8 @@
     let selectedTrip = null;
     let selectedTripIdx = -1;
     let currentFilters = {};
+    let shipmentStopsMap = {};
+    let stopsLoading = false;
 
     // === COLUMN CONFIGURATION ===
     const COL_STORAGE_KEY = 'dispatch_column_config';
@@ -1353,6 +1373,91 @@
       const headers = { 'Content-Type': 'application/json' };
       if (token) headers.Authorization = `Bearer ${token}`;
       return fetch(`/api/${action}`, { method: 'POST', headers, body: JSON.stringify(data) }).then(r => r.json());
+    }
+
+    async function prefetchStopData() {
+      const allShipmentIds = new Set();
+      for (const trip of allTrips) {
+        for (const seg of (trip.Segments || [])) {
+          if (seg.ShipmentId && seg.ShipmentId !== '-') allShipmentIds.add(seg.ShipmentId);
+        }
+      }
+      if (allShipmentIds.size === 0) return;
+      stopsLoading = true;
+      try {
+        const org = orgInput.value.trim();
+        const res = await api('trip_stops', { org, token, shipment_ids: Array.from(allShipmentIds) });
+        if (res.success) shipmentStopsMap = res.stops || {};
+      } catch(e) { console.warn('[StopsPrefetch] Error:', e); }
+      stopsLoading = false;
+    }
+
+    function renderSegmentsWithAccordion(segs, tbodyId) {
+      const tbody = document.getElementById(tbodyId);
+      tbody.innerHTML = segs.map((s, i) => {
+        const hasShipment = s.ShipmentId && s.ShipmentId !== '-';
+        const chevron = hasShipment ? '<span class="seg-chevron"><i class="fas fa-chevron-right"></i></span>' : '';
+        return `<tr class="seg-row${hasShipment ? '' : ' no-stops'}" data-seg-idx="${i}" data-shipment="${s.ShipmentId||''}">
+          <td>${chevron}${s.Sequence}</td><td>${s.Origin}</td><td>${s.Destination}</td><td>${fmtDt(s.Departure)}</td><td>${s.Distance}</td>
+        </tr>
+        <tr class="seg-stops-row" data-seg-idx="${i}">
+          <td colspan="5">
+            <div class="stops-container" id="${tbodyId}_stops_${i}"></div>
+          </td>
+        </tr>`;
+      }).join('');
+
+      tbody.querySelectorAll('.seg-row:not(.no-stops)').forEach(row => {
+        row.addEventListener('click', e => {
+          e.stopPropagation();
+          const idx = row.dataset.segIdx;
+          const stopsRow = tbody.querySelector(`.seg-stops-row[data-seg-idx="${idx}"]`);
+          const container = document.getElementById(`${tbodyId}_stops_${idx}`);
+          const isExpanded = row.classList.contains('expanded');
+
+          if (isExpanded) {
+            row.classList.remove('expanded');
+            stopsRow.classList.remove('visible');
+            return;
+          }
+
+          row.classList.add('expanded');
+          stopsRow.classList.add('visible');
+
+          const shipId = row.dataset.shipment;
+          const stops = shipmentStopsMap[shipId];
+
+          if (stopsLoading) {
+            container.innerHTML = '<div class="stops-loading"><i class="fas fa-spinner fa-spin"></i> Loading stops...</div>';
+            const poll = setInterval(() => {
+              if (!stopsLoading) {
+                clearInterval(poll);
+                renderStopsTable(container, shipmentStopsMap[shipId]);
+              }
+            }, 300);
+          } else {
+            renderStopsTable(container, stops);
+          }
+        });
+      });
+    }
+
+    function renderStopsTable(container, stops) {
+      if (!stops || stops.length === 0) {
+        container.innerHTML = '<div class="stops-loading">No stop data available</div>';
+        return;
+      }
+      container.innerHTML = `<table class="stops-sub-table">
+        <thead><tr><th>Stop</th><th>Location</th><th>Address</th><th>Action</th><th>Arrival</th><th>Departure</th></tr></thead>
+        <tbody>${stops.map(st => `<tr>
+          <td>${st.StopSequence}</td>
+          <td>${st.FacilityId}</td>
+          <td>${st.Address||'-'}</td>
+          <td>${st.StopAction||'-'}</td>
+          <td>${st.PlannedArrival ? fmtDt(st.PlannedArrival) : '-'}</td>
+          <td>${st.PlannedDeparture ? fmtDt(st.PlannedDeparture) : '-'}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
     }
 
     // === TRACKING ===
@@ -1738,6 +1843,8 @@
         if (sortKey) { applySortAndRender(); } else { renderTableHeader(); renderTripsTable(); }
         renderTripCards();
         tripsLayout.style.display = 'flex';
+        shipmentStopsMap = {};
+        prefetchStopData();
         trackEvent('search_trips', { org, filters: currentFilters, count: res.count });
       } else {
         allTrips = [];
@@ -1827,10 +1934,7 @@
       document.getElementById('detailDistance').textContent = trip.TotalDistance || '-';
       document.getElementById('detailDuration').textContent = fmtDuration(trip.TotalDurationMinutes);
       document.getElementById('detailStops').textContent = trip.TotalStops || '-';
-      const segs = trip.Segments || [];
-      document.getElementById('detailSegments').innerHTML = segs.map(s =>
-        `<tr><td>${s.Sequence}</td><td>${s.Origin}</td><td>${s.Destination}</td><td>${fmtDt(s.Departure)}</td><td>${s.Distance}</td></tr>`
-      ).join('');
+      renderSegmentsWithAccordion(trip.Segments || [], 'detailSegments');
       document.getElementById('detailDriverName').textContent = trip.DriverAssignment?.Name || '-';
       document.getElementById('detailDriverRole').textContent = `(${trip.DriverAssignment?.Role || 'Unknown'})`;
       const assignBtn = document.getElementById('assignBtn');
@@ -1867,10 +1971,7 @@
       document.getElementById('sheetDistance').textContent = trip.TotalDistance || '-';
       document.getElementById('sheetDuration').textContent = fmtDuration(trip.TotalDurationMinutes);
       document.getElementById('sheetStops').textContent = trip.TotalStops || '-';
-      const segs = trip.Segments || [];
-      document.getElementById('sheetSegments').innerHTML = segs.map(s =>
-        `<tr><td>${s.Sequence}</td><td>${s.Origin}</td><td>${s.Destination}</td><td>${fmtDt(s.Departure)}</td><td>${s.Distance}</td></tr>`
-      ).join('');
+      renderSegmentsWithAccordion(trip.Segments || [], 'sheetSegments');
       document.getElementById('sheetDriverName').textContent = trip.DriverAssignment?.Name || '-';
       document.getElementById('sheetDriverRole').textContent = `(${trip.DriverAssignment?.Role || 'Unknown'})`;
       const btn = document.getElementById('assignBtnMobile');
