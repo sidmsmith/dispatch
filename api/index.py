@@ -158,10 +158,41 @@ def calc_duration_minutes(start_iso, end_iso):
         return None
 
 
+STATE_NAME_TO_ABBR = {
+    "ALABAMA": "AL", "ALASKA": "AK", "ARIZONA": "AZ", "ARKANSAS": "AR",
+    "CALIFORNIA": "CA", "COLORADO": "CO", "CONNECTICUT": "CT", "DELAWARE": "DE",
+    "FLORIDA": "FL", "GEORGIA": "GA", "HAWAII": "HI", "IDAHO": "ID",
+    "ILLINOIS": "IL", "INDIANA": "IN", "IOWA": "IA", "KANSAS": "KS",
+    "KENTUCKY": "KY", "LOUISIANA": "LA", "MAINE": "ME", "MARYLAND": "MD",
+    "MASSACHUSETTS": "MA", "MICHIGAN": "MI", "MINNESOTA": "MN", "MISSISSIPPI": "MS",
+    "MISSOURI": "MO", "MONTANA": "MT", "NEBRASKA": "NE", "NEVADA": "NV",
+    "NEW HAMPSHIRE": "NH", "NEW JERSEY": "NJ", "NEW MEXICO": "NM", "NEW YORK": "NY",
+    "NORTH CAROLINA": "NC", "NORTH DAKOTA": "ND", "OHIO": "OH", "OKLAHOMA": "OK",
+    "OREGON": "OR", "PENNSYLVANIA": "PA", "RHODE ISLAND": "RI", "SOUTH CAROLINA": "SC",
+    "SOUTH DAKOTA": "SD", "TENNESSEE": "TN", "TEXAS": "TX", "UTAH": "UT",
+    "VERMONT": "VT", "VIRGINIA": "VA", "WASHINGTON": "WA", "WEST VIRGINIA": "WV",
+    "WISCONSIN": "WI", "WYOMING": "WY", "DISTRICT OF COLUMBIA": "DC",
+    "ALBERTA": "AB", "BRITISH COLUMBIA": "BC", "MANITOBA": "MB",
+    "NEW BRUNSWICK": "NB", "NEWFOUNDLAND AND LABRADOR": "NL", "NOVA SCOTIA": "NS",
+    "NORTHWEST TERRITORIES": "NT", "NUNAVUT": "NU", "ONTARIO": "ON",
+    "PRINCE EDWARD ISLAND": "PE", "QUEBEC": "QC", "SASKATCHEWAN": "SK", "YUKON": "YT",
+}
+
+
+def normalize_state(state_raw):
+    """Convert a state name or code to its 2-letter abbreviation."""
+    if not state_raw:
+        return ""
+    s = state_raw.strip().upper()
+    if len(s) <= 2:
+        return s
+    return STATE_NAME_TO_ABBR.get(s, s)
+
+
 def format_city_state(city, state):
-    """Format city as Title Case and state as UPPER, return 'City, ST'."""
+    """Format city as Title Case and state as 2-letter abbreviation, return 'City, ST'."""
     c = city.strip().title() if city else ""
-    s = state.strip().upper() if state else ""
+    s = normalize_state(state)
     if c and s:
         return f"{c}, {s}"
     return c or s or ""
@@ -224,7 +255,7 @@ def get_location_parts(segment, direction, facility_map):
         city = (addr.get("City") or "").strip()
         state = (addr.get("State") or "").strip()
         if city or state:
-            return city.title(), state.upper(), format_city_state(city, state)
+            return city.title(), normalize_state(state), format_city_state(city, state)
 
     fid = segment.get(f"{direction}FacilityId", "-")
     resolved = facility_map.get(fid)
@@ -427,6 +458,11 @@ def transform_trip(raw_trip, facility_map=None, home_facility_ids=None, driver_n
     destination_fid = last_seg.get("DestinationFacilityId", "-")
     origin = format_location(first_seg, "Origin", fmap) if first_seg else "-"
     dest_city, dest_state, destination = get_location_parts(last_seg, "Destination", fmap) if last_seg else ("", "", "-")
+
+    if destination == origin and len(segments_sorted) >= 2:
+        penultimate = segments_sorted[-2]
+        destination_fid = penultimate.get("DestinationFacilityId", "-")
+        dest_city, dest_state, destination = get_location_parts(penultimate, "Destination", fmap)
 
     all_dest_cities = set()
     all_dest_states = set()
