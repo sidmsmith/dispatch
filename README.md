@@ -1,10 +1,21 @@
-# Dispatch v1.0.1
+# Dispatch v1.0.2
 
 A web application for searching, filtering, and assigning Manhattan Active Transportation Management (TMS) trips. Designed for both desktop and mobile browsers.
 
 ## Overview
 
 Dispatch allows users to search for trips using a variety of filters, view results in a sortable table (desktop) or card list (mobile), inspect trip details, and assign trips to drivers. The app connects to the Manhattan Active TMS APIs to retrieve live trip, facility, and equipment data.
+
+### v1.0.2 Highlights
+
+- Added **Hy-Vee** theme (brand red accent and Hy-Vee logo support).
+- Updated equipment dropdown normalization:
+  - If `Description` is null/blank, the UI now displays `EquipmentTypeId`.
+  - Sorting is now based on the final display label (case-insensitive), so null descriptions no longer float to the top.
+- Added/updated **Tractor** and **Trailer** handling:
+  - Tractor column uses trip-level `AssignedTractorNumber` when available.
+  - Trailer column uses trip-level `AssignedTrailerNumber`, with fallback to the first segment's `AssignedTrailerNumber`.
+  - Assign payload continues to send segment-level trailer numbers and trip-level tractor number, matching successful Manhattan payload patterns.
 
 ---
 
@@ -40,7 +51,7 @@ After authentication, users are presented with a set of filter fields:
 
 Displays all matching trips in a table (desktop) or card list (mobile).
 
-**Columns displayed:** Trip ID, Status, Origin, Destination, Pickup, Delivery, Duration, Stops, Segments, Backhaul, Distance, Driver, Carrier.
+**Columns displayed (default):** Trip ID, Status, Origin, Destination, Origin Facility, Dest Facility, Pickup, Delivery, Duration, Stops, Segments, Backhaul, Distance, Carrier, Tractor, Trailer, Driver.
 
 - **Status** is displayed as a human-readable label (e.g., "Not Dispatched") based on the status code.
 - **Origin** is derived from the first segment (Sequence = 1).
@@ -48,6 +59,7 @@ Displays all matching trips in a table (desktop) or card list (mobile).
 - **Duration** is displayed as "X Days Y Hours Z Minutes" format.
 - **Pickup and Delivery dates** are displayed in the user's local timezone with the format `MM/DD/YY, HH:MM AM/PM EST`.
 - Cities are displayed in Title Case and states in uppercase (e.g., "Los Angeles, CA").
+- **Trailer display** uses trip-level `AssignedTrailerNumber` when present, else falls back to segment-level trailer number.
 
 **Active filter chips** appear above the results showing which filters are applied. Clicking the X on a chip removes that filter and re-runs the search.
 
@@ -202,7 +214,7 @@ The inbound at Sequence 3 indicates the driver picked up freight at VENDOR-B on 
 ## API Data Flow
 
 1. **Authentication:** OAuth2 token obtained from the Manhattan auth service using the organization code.
-2. **Equipment Types:** Loaded from `/asset-manager/api/asset-manager/equipmentType/search` to populate the Required Equipment dropdown.
+2. **Equipment Types:** Loaded from `/yard-management/api/yard-management/equipmentType/search` to populate the Required Equipment dropdown.
 3. **Trip Search:** Queries `/shipment/api/shipment/trip/search` with a filter for `TripSegment.Sequence = '1'` and `TripStatusId = '1000'`, plus optional date range filters on `PlannedOriginDepartureStart`.
 4. **Facility Resolution:** Unique Facility IDs from all trip segments are batch-resolved via `/facility/api/facility/facility/search` to obtain City/State information for display.
 5. **Home Facility Resolution:** Terminal facilities are identified (for backhaul calculation) via Facility Master query or environment override.
@@ -229,6 +241,7 @@ The app supports multiple visual themes, selectable via the gear icon:
 | Manhattan | Manhattan Associates branded dark theme |
 | Love's Travel Stops | Red-themed with Love's logo |
 | Rockline Industries | Green-themed with Rockline logo |
+| Hy-Vee | Red-themed with Hy-Vee logo |
 
 Themes can be hidden from the UI by passing `?Theme=N` in the URL.
 
