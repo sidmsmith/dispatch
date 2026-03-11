@@ -140,30 +140,22 @@ TRIP_STATUS_MAP = {
 
 
 def format_dt_short(iso_str):
-    """Format ISO datetime to compact display like 'MM/DD HH:MM'"""
+    """Return raw ISO string with 'Z' suffix so frontend can parse as UTC."""
     if not iso_str:
-        return "-"
-    try:
-        dt = datetime.fromisoformat(iso_str)
-        return dt.strftime("%m/%d/%y %H:%M")
-    except:
-        return iso_str[:16] if len(iso_str) >= 16 else iso_str
+        return None
+    return iso_str + "Z" if not iso_str.endswith("Z") else iso_str
 
 
-def calc_duration(start_iso, end_iso):
-    """Calculate duration string between two ISO timestamps"""
+def calc_duration_minutes(start_iso, end_iso):
+    """Calculate duration in minutes between two ISO timestamps."""
     if not start_iso or not end_iso:
-        return "-"
+        return None
     try:
         start = datetime.fromisoformat(start_iso)
         end = datetime.fromisoformat(end_iso)
-        delta = end - start
-        total_minutes = int(delta.total_seconds() / 60)
-        hours = total_minutes // 60
-        minutes = total_minutes % 60
-        return f"{hours}h {minutes:02d}m"
+        return int((end - start).total_seconds() / 60)
     except:
-        return "-"
+        return None
 
 
 def format_city_state(city, state):
@@ -326,7 +318,7 @@ def transform_trip(raw_trip, facility_map=None):
         "DestinationFacility": destination_fid,
         "PickupWindow": format_dt_short(pickup_start),
         "DeliveryWindow": format_dt_short(delivery_end),
-        "TotalDuration": calc_duration(pickup_start, delivery_end),
+        "TotalDurationMinutes": calc_duration_minutes(pickup_start, delivery_end),
         "DurationHours": duration_hours,
         "TotalStops": len(unique_facilities),
         "TotalSegments": len(segments_sorted),

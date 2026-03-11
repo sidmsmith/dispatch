@@ -821,6 +821,7 @@
             <div class="detail-kv"><span class="kv-label">Carrier:</span><span class="kv-value" id="detailCarrier"></span></div>
             <div class="detail-kv"><span class="kv-label">Tractor:</span><span class="kv-value" id="detailTractor"></span></div>
             <div class="detail-kv"><span class="kv-label">Total Distance:</span><span class="kv-value" id="detailDistance"></span></div>
+            <div class="detail-kv"><span class="kv-label">Duration:</span><span class="kv-value" id="detailDuration"></span></div>
             <div class="detail-kv"><span class="kv-label">Stops:</span><span class="kv-value" id="detailStops"></span></div>
           </div>
           <div class="detail-section">
@@ -873,6 +874,7 @@
       <div class="detail-kv"><span class="kv-label">Carrier:</span><span class="kv-value" id="sheetCarrier"></span></div>
       <div class="detail-kv"><span class="kv-label">Tractor:</span><span class="kv-value" id="sheetTractor"></span></div>
       <div class="detail-kv"><span class="kv-label">Total Distance:</span><span class="kv-value" id="sheetDistance"></span></div>
+      <div class="detail-kv"><span class="kv-label">Duration:</span><span class="kv-value" id="sheetDuration"></span></div>
       <div class="detail-kv"><span class="kv-label">Stops:</span><span class="kv-value" id="sheetStops"></span></div>
     </div>
     <div class="detail-section">
@@ -939,6 +941,30 @@
     const startupOrg = (startupParams.get('ORG') || startupParams.get('Organization') || '').trim();
     if (startupOrg) {
       orgInput.value = startupOrg;
+    }
+
+    // === FORMATTERS ===
+    function fmtDt(iso) {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      if (isNaN(d)) return iso;
+      return d.toLocaleString('en-US', {
+        month: '2-digit', day: '2-digit', year: '2-digit',
+        hour: 'numeric', minute: '2-digit',
+        hour12: true, timeZoneName: 'short'
+      });
+    }
+
+    function fmtDuration(mins) {
+      if (mins == null || mins < 0) return '-';
+      const days = Math.floor(mins / 1440);
+      const hours = Math.floor((mins % 1440) / 60);
+      const m = mins % 60;
+      const parts = [];
+      if (days > 0) parts.push(`${days} Day${days !== 1 ? 's' : ''}`);
+      if (hours > 0) parts.push(`${hours} Hour${hours !== 1 ? 's' : ''}`);
+      if (m > 0 || parts.length === 0) parts.push(`${m} Minute${m !== 1 ? 's' : ''}`);
+      return parts.join(' ');
     }
 
     // === STATUS ===
@@ -1232,9 +1258,9 @@
           <td>${t.Destination}</td>
           <td style="font-size:0.78rem;color:var(--text-muted)">${t.OriginFacility || '-'}</td>
           <td style="font-size:0.78rem;color:var(--text-muted)">${t.DestinationFacility || '-'}</td>
-          <td>${t.PickupWindow}</td>
-          <td>${t.DeliveryWindow}</td>
-          <td>${t.TotalDuration}</td>
+          <td>${fmtDt(t.PickupWindow)}</td>
+          <td>${fmtDt(t.DeliveryWindow)}</td>
+          <td>${fmtDuration(t.TotalDurationMinutes)}</td>
           <td>${t.TotalStops}</td>
           <td>${t.TotalSegments}</td>
           <td>${t.TotalDistance || '-'}</td>
@@ -1263,7 +1289,7 @@
           </div>
           <div class="trip-card-route">${t.Origin} → ${t.Destination}</div>
           <div class="trip-card-meta">
-            <span><i class="fas fa-clock"></i> ${t.TotalDuration}</span>
+            <span><i class="fas fa-clock"></i> ${fmtDuration(t.TotalDurationMinutes)}</span>
             <span><i class="fas fa-route"></i> ${t.TotalDistance}</span>
             <span><i class="fas fa-map-marker-alt"></i> ${t.TotalStops} stops</span>
           </div>
@@ -1287,10 +1313,11 @@
       document.getElementById('detailCarrier').textContent = trip.Carrier || '-';
       document.getElementById('detailTractor').textContent = trip.Tractor || '-';
       document.getElementById('detailDistance').textContent = trip.TotalDistance || '-';
+      document.getElementById('detailDuration').textContent = fmtDuration(trip.TotalDurationMinutes);
       document.getElementById('detailStops').textContent = trip.TotalStops || '-';
       const segs = trip.Segments || [];
       document.getElementById('detailSegments').innerHTML = segs.map(s =>
-        `<tr><td>${s.Sequence}</td><td>${s.Origin}</td><td>${s.Destination}</td><td>${s.Departure}</td><td>${s.Distance}</td></tr>`
+        `<tr><td>${s.Sequence}</td><td>${s.Origin}</td><td>${s.Destination}</td><td>${fmtDt(s.Departure)}</td><td>${s.Distance}</td></tr>`
       ).join('');
       document.getElementById('detailDriverName').textContent = trip.DriverAssignment?.Name || '-';
       document.getElementById('detailDriverRole').textContent = `(${trip.DriverAssignment?.Role || 'Unknown'})`;
@@ -1313,10 +1340,11 @@
       document.getElementById('sheetCarrier').textContent = trip.Carrier || '-';
       document.getElementById('sheetTractor').textContent = trip.Tractor || '-';
       document.getElementById('sheetDistance').textContent = trip.TotalDistance || '-';
+      document.getElementById('sheetDuration').textContent = fmtDuration(trip.TotalDurationMinutes);
       document.getElementById('sheetStops').textContent = trip.TotalStops || '-';
       const segs = trip.Segments || [];
       document.getElementById('sheetSegments').innerHTML = segs.map(s =>
-        `<tr><td>${s.Sequence}</td><td>${s.Origin}</td><td>${s.Destination}</td><td>${s.Departure}</td><td>${s.Distance}</td></tr>`
+        `<tr><td>${s.Sequence}</td><td>${s.Origin}</td><td>${s.Destination}</td><td>${fmtDt(s.Departure)}</td><td>${s.Distance}</td></tr>`
       ).join('');
       document.getElementById('sheetDriverName').textContent = trip.DriverAssignment?.Name || '-';
       document.getElementById('sheetDriverRole').textContent = `(${trip.DriverAssignment?.Role || 'Unknown'})`;
