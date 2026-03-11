@@ -584,9 +584,9 @@
     /* Responsive breakpoints */
     @media (max-width: 992px) {
       .detail-panel { display: none !important; }
-      .trips-table-wrapper { display: none; }
-      .trip-cards-mobile { display: block; flex: 1; min-height: 0; }
-      .trips-layout { flex: 1; min-height: 0; flex-direction: column; }
+      .trips-layout { display: none !important; }
+      .trip-cards-mobile { display: block; flex: 1; min-height: 0; -ms-overflow-style: none; scrollbar-width: none; }
+      .trip-cards-mobile::-webkit-scrollbar { display: none; }
     }
     @media (min-width: 993px) {
       .bottom-sheet-overlay, .bottom-sheet { display: none !important; }
