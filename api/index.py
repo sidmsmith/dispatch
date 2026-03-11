@@ -1046,10 +1046,9 @@ def assign_trip():
             "TrailerNumber": seg.get("TrailerNumber")
         })
 
-    has_real_assets = any(seg.get("TrailerNumber") for seg in segments_payload)
     tractor_asset_id = assign_data.get("TractorAssetId")
     terminal_id = assign_data.get("TerminalId")
-    tractor_number = resolve_tractor_number(tractor_asset_id, terminal_id, headers) if (has_real_assets and tractor_asset_id) else None
+    tractor_number = resolve_tractor_number(tractor_asset_id, terminal_id, headers) if tractor_asset_id else None
 
     payload = {
         "TripId": trip_id,
