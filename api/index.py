@@ -570,8 +570,8 @@ def transform_trip(raw_trip, facility_map=None, home_facility_ids=None, driver_n
         "Backhaul": "Yes" if (home_facility_ids and analyze_trip_backhaul(segments_sorted, home_facility_ids)) else "No",
         "CurrentDriver": driver_display,
         "Carrier": raw_trip.get("AssignedCarrierId", "-"),
-        "Tractor": raw_trip.get("AssignedTractorAssetId", "-"),
-        "Trailer": first_seg.get("AssignedTrailerNumber") or first_seg.get("AssignedTrailerId") or "-" if first_seg else "-",
+        "Tractor": raw_trip.get("AssignedTractorNumber") or "-",
+        "Trailer": raw_trip.get("AssignedTrailerNumber") or "-",
         "Overview": {
             "Carrier": raw_trip.get("AssignedCarrierId", "-"),
             "Distance": f"{total_distance:.1f} mi",
@@ -597,6 +597,8 @@ def transform_trip(raw_trip, facility_map=None, home_facility_ids=None, driver_n
         } for s in segments_sorted],
         "AssignData": {
             "TractorAssetId": raw_trip.get("AssignedTractorAssetId"),
+            "TractorNumber": raw_trip.get("AssignedTractorNumber") or None,
+            "TrailerNumber": raw_trip.get("AssignedTrailerNumber") or None,
             "CarrierId": raw_trip.get("AssignedCarrierId"),
             "TerminalId": derive_trip_terminal(segments_sorted),
             "StatusCode": status_code,
@@ -676,6 +678,8 @@ def search_trips():
             "AssignedCarrierId": None,
             "AssignedDriverId": None,
             "AssignedTractorAssetId": None,
+            "AssignedTractorNumber": None,
+            "AssignedTrailerNumber": None,
             "TripSegment": None
         },
         "Sort": [{"attribute": "CreatedTimestamp", "direction": "asc"}],
@@ -1047,16 +1051,12 @@ def assign_trip():
             "TrailerNumber": seg.get("TrailerNumber")
         })
 
-    tractor_asset_id = assign_data.get("TractorAssetId")
-    terminal_id = assign_data.get("TerminalId")
-    tractor_number = resolve_tractor_number(tractor_asset_id, terminal_id, headers) if tractor_asset_id else None
-
     payload = {
         "TripId": trip_id,
         "DriverCode": driver_code,
         "DriverCode2": None,
         "DriverCode3": None,
-        "TractorNumber": tractor_number,
+        "TractorNumber": assign_data.get("TractorNumber"),
         "Segments": segments_payload,
         "KeepTractorAssignment": False
     }
