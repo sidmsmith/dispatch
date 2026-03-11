@@ -793,6 +793,8 @@
                 <th>Status</th>
                 <th>Origin</th>
                 <th>Destination</th>
+                <th>Origin Facility</th>
+                <th>Dest Facility</th>
                 <th>Pickup</th>
                 <th>Delivery</th>
                 <th>Duration</th>
@@ -1214,6 +1216,8 @@
           <td>${t.Status}</td>
           <td>${t.Origin}</td>
           <td>${t.Destination}</td>
+          <td style="font-size:0.78rem;color:var(--text-muted)">${t.OriginFacility || '-'}</td>
+          <td style="font-size:0.78rem;color:var(--text-muted)">${t.DestinationFacility || '-'}</td>
           <td>${t.PickupWindow}</td>
           <td>${t.DeliveryWindow}</td>
           <td>${t.TotalDuration}</td>

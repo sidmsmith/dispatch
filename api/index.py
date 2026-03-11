@@ -166,7 +166,68 @@ def calc_duration(start_iso, end_iso):
         return "-"
 
 
-def transform_trip(raw_trip):
+def resolve_facility_locations(facility_ids, headers):
+    """Batch-resolve FacilityIds to 'City, State' via facility search API.
+    Returns dict of {FacilityId: 'City, ST'} for each resolved facility."""
+    if not facility_ids:
+        return {}
+
+    facility_map = {}
+    for fid in facility_ids:
+        try:
+            url = f"https://{API_HOST}/facility/api/facility/facility/search"
+            payload = {
+                "Query": f"FacilityId = '{fid}'",
+                "Template": {
+                    "FacilityId": None,
+                    "FacilityAddress": {
+                        "City": None,
+                        "State": None,
+                        "PostalCode": None,
+                        "Country": None
+                    }
+                },
+                "Sort": [],
+                "Size": 1
+            }
+            r = requests.post(url, json=payload, headers=headers, timeout=15, verify=False)
+            if r.ok:
+                data = r.json().get("data", []) or []
+                if data:
+                    fac = data[0]
+                    addr = fac.get("FacilityAddress") or {}
+                    city = addr.get("City", "")
+                    state = addr.get("State", "")
+                    if city and state:
+                        facility_map[fid] = f"{city}, {state}"
+                    elif city:
+                        facility_map[fid] = city
+                    elif state:
+                        facility_map[fid] = state
+        except Exception as e:
+            print(f"[FacilityLookup] Error resolving {fid}: {e}")
+
+    print(f"[FacilityLookup] Resolved {len(facility_map)}/{len(facility_ids)} facilities")
+    return facility_map
+
+
+def format_location(segment, direction, facility_map):
+    """Resolve a segment's origin or destination to 'City, State'.
+    direction is 'Origin' or 'Destination'."""
+    addr = segment.get(f"{direction}Address")
+    if addr and isinstance(addr, dict):
+        city = addr.get("City", "")
+        state = addr.get("State", "")
+        if city and state:
+            return f"{city}, {state}"
+        if city:
+            return city
+
+    fid = segment.get(f"{direction}FacilityId", "-")
+    return facility_map.get(fid, fid)
+
+
+def transform_trip(raw_trip, facility_map=None):
     """Transform a raw Manhattan API trip into the frontend display format"""
     segments = raw_trip.get("TripSegment", []) or []
     segments_sorted = sorted(segments, key=lambda s: s.get("Sequence", 0))
@@ -178,8 +239,12 @@ def transform_trip(raw_trip):
     status_code = status_obj.get("TripStatusId", "") if isinstance(status_obj, dict) else str(status_obj)
     status_label = TRIP_STATUS_MAP.get(status_code, status_code)
 
-    origin = first_seg.get("OriginFacilityId", "-")
-    destination = first_seg.get("DestinationFacilityId", "-")
+    fmap = facility_map or {}
+
+    origin_fid = first_seg.get("OriginFacilityId", "-")
+    destination_fid = first_seg.get("DestinationFacilityId", "-")
+    origin = format_location(first_seg, "Origin", fmap) if first_seg else "-"
+    destination = format_location(first_seg, "Destination", fmap) if first_seg else "-"
 
     pickup_start = first_seg.get("PlannedOriginDepartureStart")
     delivery_end = last_seg.get("PlannedDestinationArrivalStart")
@@ -221,6 +286,8 @@ def transform_trip(raw_trip):
         "StatusCode": status_code,
         "Origin": origin,
         "Destination": destination,
+        "OriginFacility": origin_fid,
+        "DestinationFacility": destination_fid,
         "PickupWindow": format_dt_short(pickup_start),
         "DeliveryWindow": format_dt_short(delivery_end),
         "TotalDuration": calc_duration(pickup_start, delivery_end),
@@ -246,8 +313,10 @@ def transform_trip(raw_trip):
             "SegmentId": s.get("SegmentId", "-"),
             "Sequence": s.get("Sequence", 0),
             "ShipmentId": s.get("ShipmentId") or "-",
-            "Origin": s.get("OriginFacilityId", "-"),
-            "Destination": s.get("DestinationFacilityId", "-"),
+            "Origin": format_location(s, "Origin", fmap),
+            "Destination": format_location(s, "Destination", fmap),
+            "OriginFacility": s.get("OriginFacilityId", "-"),
+            "DestinationFacility": s.get("DestinationFacilityId", "-"),
             "Departure": format_dt_short(s.get("PlannedOriginDepartureStart")),
             "Arrival": format_dt_short(s.get("PlannedDestinationArrivalStart")),
             "Distance": f"{s.get('OneWayDistance', 0) or 0:.1f} mi",
@@ -347,7 +416,22 @@ def search_trips():
                 print(f"[SearchTrips] Equipment filter: {len(raw_trips)} -> {len(filtered)} trips")
                 raw_trips = filtered
 
-            trips = [transform_trip(t) for t in raw_trips]
+            all_facility_ids = set()
+            for trip in raw_trips:
+                for seg in (trip.get("TripSegment", []) or []):
+                    ofid = seg.get("OriginFacilityId")
+                    dfid = seg.get("DestinationFacilityId")
+                    oaddr = seg.get("OriginAddress")
+                    daddr = seg.get("DestinationAddress")
+                    if ofid and not (oaddr and isinstance(oaddr, dict) and oaddr.get("City")):
+                        all_facility_ids.add(ofid)
+                    if dfid and not (daddr and isinstance(daddr, dict) and daddr.get("City")):
+                        all_facility_ids.add(dfid)
+
+            print(f"[SearchTrips] Resolving {len(all_facility_ids)} unique facilities")
+            facility_map = resolve_facility_locations(all_facility_ids, headers)
+
+            trips = [transform_trip(t, facility_map) for t in raw_trips]
 
             duration_min = filters.get("durationMin")
             duration_max = filters.get("durationMax")
