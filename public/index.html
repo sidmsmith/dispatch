@@ -679,6 +679,8 @@
       <button class="theme-option active" data-theme="light">Light</button>
       <button class="theme-option" data-theme="dark">Dark</button>
       <button class="theme-option" data-theme="manhattan">Manhattan</button>
+      <button class="theme-option" data-theme="loves">Love's Travel Stops</button>
+      <button class="theme-option" data-theme="rockline">Rockline Industries</button>
     </div>
 
     <div class="logo-wrapper">
@@ -1516,7 +1518,35 @@
         '--header-bg': '#3a3f4e', '--header-text': '#e0e0e0', '--chip-bg': '#5a6172',
         '--chip-text': '#e0e0e0', '--row-hover': '#3a3f4e', '--row-selected': '#2b4c7e',
         '--detail-bg': '#3a3f4e', '--skeleton-base': '#3a3f4e', '--skeleton-shine': '#5a6172'
+      },
+      loves: {
+        '--bg-color': '#ffffff', '--text-color': '#212529', '--text-muted': '#6c757d',
+        '--card-bg': '#ffffff', '--border-color': '#dee2e6', '--input-bg': '#f5f5f5',
+        '--input-border': '#ced4da', '--input-focus-bg': '#ffffff', '--input-focus-border': '#E31837',
+        '--input-focus-shadow': 'rgba(227,24,55,0.25)', '--primary-color': '#E31837',
+        '--primary-hover': '#C0142D', '--success-color': '#28a745', '--danger-color': '#dc3545',
+        '--header-bg': '#E31837', '--header-text': '#ffffff', '--chip-bg': '#fce4e8',
+        '--chip-text': '#8b0f22', '--row-hover': '#fff0f2', '--row-selected': '#fce4e8',
+        '--detail-bg': '#fff5f6', '--skeleton-base': '#f0d0d5', '--skeleton-shine': '#fce4e8'
+      },
+      rockline: {
+        '--bg-color': '#ffffff', '--text-color': '#2d2d2d', '--text-muted': '#6b7d66',
+        '--card-bg': '#ffffff', '--border-color': '#d4ddd0', '--input-bg': '#f0f2ee',
+        '--input-border': '#b8c9b3', '--input-focus-bg': '#ffffff', '--input-focus-border': '#6EB43F',
+        '--input-focus-shadow': 'rgba(110,180,63,0.25)', '--primary-color': '#6EB43F',
+        '--primary-hover': '#5a9a32', '--success-color': '#6EB43F', '--danger-color': '#c62828',
+        '--header-bg': '#2d2d2d', '--header-text': '#ffffff', '--chip-bg': '#e4f0db',
+        '--chip-text': '#3d5a2e', '--row-hover': '#f0f5ec', '--row-selected': '#e4f0db',
+        '--detail-bg': '#f4f6f3', '--skeleton-base': '#d4ddd0', '--skeleton-shine': '#e4f0db'
       }
+    };
+
+    const THEME_LOGOS = {
+      light: '/manhattan-logo.png',
+      dark: '/manhattan-logo.png',
+      manhattan: '/manhattan-logo.png',
+      loves: '/loves-logo.png',
+      rockline: '/rockline_logo.png'
     };
 
     function applyTheme(name) {
@@ -1524,6 +1554,11 @@
       if (!vars) return;
       for (const [prop, val] of Object.entries(vars)) {
         document.documentElement.style.setProperty(prop, val);
+      }
+      const logo = document.querySelector('.app-logo');
+      if (logo && THEME_LOGOS[name]) {
+        logo.src = THEME_LOGOS[name];
+        logo.style.display = '';
       }
       document.querySelectorAll('.theme-option').forEach(o => {
         o.classList.toggle('active', o.dataset.theme === name);
