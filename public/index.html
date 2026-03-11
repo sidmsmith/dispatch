@@ -1150,7 +1150,11 @@
     let sortAsc = true;
 
     function saveColumnConfig() {
-      const cfg = columns.map(c => ({ key: c.key, visible: c.visible }));
+      const cfg = {
+        cols: columns.map(c => ({ key: c.key, visible: c.visible })),
+        sortKey: sortKey,
+        sortAsc: sortAsc
+      };
       localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(cfg));
     }
 
@@ -1159,8 +1163,9 @@
       if (!raw) return;
       try {
         const saved = JSON.parse(raw);
+        const colsCfg = saved.cols || saved;
         const ordered = [];
-        for (const s of saved) {
+        for (const s of colsCfg) {
           const def = DEFAULT_COLUMNS.find(d => d.key === s.key);
           if (def) ordered.push({ ...def, visible: s.visible });
         }
@@ -1168,6 +1173,7 @@
           if (!ordered.find(o => o.key === def.key)) ordered.push({ ...def });
         }
         columns = ordered;
+        if (saved.sortKey !== undefined) { sortKey = saved.sortKey; sortAsc = saved.sortAsc !== false; }
       } catch(e) { /* ignore corrupt data */ }
     }
 
@@ -1245,6 +1251,7 @@
           });
         }
       }
+      saveColumnConfig();
       renderTableHeader();
       renderTripsTable();
     }
@@ -1728,9 +1735,7 @@
       if (res.success && res.trips && res.trips.length > 0) {
         allTrips = res.trips;
         tripCount.textContent = `${res.count} trips found`;
-        sortKey = null; sortAsc = true;
-        renderTableHeader();
-        renderTripsTable();
+        if (sortKey) { applySortAndRender(); } else { renderTableHeader(); renderTripsTable(); }
         renderTripCards();
         tripsLayout.style.display = 'flex';
         trackEvent('search_trips', { org, filters: currentFilters, count: res.count });
