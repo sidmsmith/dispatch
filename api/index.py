@@ -602,7 +602,7 @@ def transform_trip(raw_trip, facility_map=None, home_facility_ids=None, driver_n
             "Segments": [{
                 "SegmentId": s.get("SegmentId"),
                 "ShipmentId": s.get("ShipmentId"),
-                "TrailerNumber": s.get("AssignedTrailerNumber") or s.get("AssignedTrailerId") or s.get("AssignedTrailerAssetId")
+                "TrailerNumber": s.get("AssignedTrailerNumber") or None
             } for s in segments_sorted]
         }
     }
@@ -1038,10 +1038,6 @@ def assign_trip():
         "selectedLocation": f"{org}-DM1"
     }
 
-    tractor_asset_id = assign_data.get("TractorAssetId")
-    terminal_id = assign_data.get("TerminalId")
-    tractor_number = resolve_tractor_number(tractor_asset_id, terminal_id, headers) if tractor_asset_id else None
-
     segments_payload = []
     for seg in assign_data.get("Segments", []):
         segments_payload.append({
@@ -1049,6 +1045,11 @@ def assign_trip():
             "SegmentId": seg.get("SegmentId"),
             "TrailerNumber": seg.get("TrailerNumber")
         })
+
+    has_real_assets = any(seg.get("TrailerNumber") for seg in segments_payload)
+    tractor_asset_id = assign_data.get("TractorAssetId")
+    terminal_id = assign_data.get("TerminalId")
+    tractor_number = resolve_tractor_number(tractor_asset_id, terminal_id, headers) if (has_real_assets and tractor_asset_id) else None
 
     payload = {
         "TripId": trip_id,
