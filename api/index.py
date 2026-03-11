@@ -327,7 +327,7 @@ def search_trips():
             "TripSegment": None
         },
         "Sort": [{"attribute": "CreatedTimestamp", "direction": "asc"}],
-        "Size": 100
+        "Size": 9999
     }
 
     try:
