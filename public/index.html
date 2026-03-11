@@ -926,6 +926,7 @@
                 <th>Duration</th>
                 <th>Stops</th>
                 <th>Segments</th>
+                <th>Backhaul</th>
                 <th>Distance</th>
                 <th>Carrier</th>
                 <th>Driver</th>
@@ -1562,6 +1563,7 @@
           <td>${fmtDuration(t.TotalDurationMinutes)}</td>
           <td>${t.TotalStops}</td>
           <td>${t.TotalSegments}</td>
+          <td>${t.Backhaul || '-'}</td>
           <td>${t.TotalDistance || '-'}</td>
           <td>${t.Carrier || '-'}</td>
           <td>${t.CurrentDriver}</td>
