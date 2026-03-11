@@ -964,16 +964,14 @@
   <div class="bottom-sheet" id="bottomSheet">
     <div class="sheet-header">
       <div class="bottom-sheet-handle"></div>
-      <div class="detail-nav-arrows">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
         <button class="detail-nav-btn hidden" id="sheetPrev" title="Previous trip"><i class="fas fa-chevron-left"></i></button>
-        <button class="detail-nav-btn hidden" id="sheetNext" title="Next trip"><i class="fas fa-chevron-right"></i></button>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.5rem;">
-        <div>
+        <div style="text-align:center;flex:1;min-width:0;">
           <small style="color:var(--text-muted);">Trip</small>
           <h5 id="sheetTripId" style="margin:0;font-weight:700;"></h5>
         </div>
-        <button class="detail-close" id="sheetClose"><i class="fas fa-times"></i></button>
+        <button class="detail-nav-btn hidden" id="sheetNext" title="Next trip"><i class="fas fa-chevron-right"></i></button>
+        <button class="detail-close" id="sheetClose" style="margin-left:0.5rem;"><i class="fas fa-times"></i></button>
       </div>
     </div>
     <div class="sheet-body">
