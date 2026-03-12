@@ -141,6 +141,16 @@
     .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
     .btn-success { background: var(--success-color); border-color: var(--success-color); }
     .btn-danger { background: var(--danger-color); border-color: var(--danger-color); }
+    .btn:disabled,
+    .btn.disabled,
+    button:disabled {
+      background: #b8bec7 !important;
+      border-color: #b8bec7 !important;
+      color: #f4f6f8 !important;
+      opacity: 1 !important;
+      cursor: not-allowed !important;
+      box-shadow: none !important;
+    }
 
     .status {
       min-height: 1.5em;
@@ -1846,7 +1856,6 @@
       const to = document.getElementById('pickupTo').value;
       const invalid = from && to && new Date(to) <= new Date(from);
       submitFilters.disabled = invalid;
-      submitFilters.style.opacity = invalid ? '0.5' : '';
     }
 
     const todayCheck = document.getElementById('todayCheck');
