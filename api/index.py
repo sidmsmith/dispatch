@@ -9,10 +9,10 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
 
-HA_WEBHOOK_URL = os.getenv("HA_WEBHOOK_URL", "http://sidmsmith.zapto.org:8123/api/webhook/manhattan_app_usage")
-HA_HEADERS = {"Content-Type": "application/json"}
+USAGE_INGEST_URL = os.getenv("MANHATTAN_USAGE_INGEST_URL", "").strip()
+USAGE_INGEST_SECRET = os.getenv("MANHATTAN_USAGE_INGEST_SECRET", "").strip()
 APP_NAME = "dispatch"
-APP_VERSION = "1.0.3"
+APP_VERSION = "1.0.5"
 
 AUTH_HOST = os.getenv("MANHATTAN_AUTH_HOST", "salep-auth.sce.manh.com")
 API_HOST = os.getenv("MANHATTAN_API_HOST", "salep.sce.manh.com")
@@ -25,17 +25,30 @@ if not PASSWORD or not CLIENT_SECRET:
     raise Exception("Missing MANHATTAN_PASSWORD or MANHATTAN_SECRET environment variables")
 
 
-def send_ha_message(payload):
+def forward_usage_event(payload):
+    """POST usage JSON to Manhattan app usage dashboard ingest (Neon)."""
+    if not USAGE_INGEST_URL:
+        print("[usage] MANHATTAN_USAGE_INGEST_URL not set; event not recorded")
+        return
+    headers = {"Content-Type": "application/json"}
+    if USAGE_INGEST_SECRET:
+        headers["Authorization"] = f"Bearer {USAGE_INGEST_SECRET}"
     try:
-        full_payload = {
-            "app_name": APP_NAME,
-            "app_version": APP_VERSION,
-            "timestamp": datetime.utcnow().isoformat(),
-            **payload
-        }
-        requests.post(HA_WEBHOOK_URL, json=full_payload, headers=HA_HEADERS, timeout=5)
-    except:
-        pass
+        requests.post(USAGE_INGEST_URL, json=payload, headers=headers, timeout=8)
+    except Exception as e:
+        print(f"[usage] Forward failed: {e}")
+
+
+def emit_usage_event(event_name, metadata=None):
+    metadata = metadata or {}
+    payload = {
+        "event_name": event_name,
+        "app_name": APP_NAME,
+        "app_version": APP_VERSION,
+        **metadata,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+    forward_usage_event(payload)
 
 
 def get_manhattan_token(org):
@@ -64,7 +77,7 @@ def get_manhattan_token(org):
 
 @app.route('/api/app_opened', methods=['POST'])
 def app_opened():
-    send_ha_message({"event": "dispatch_app_opened"})
+    emit_usage_event("dispatch_app_opened")
     return jsonify({"success": True})
 
 
@@ -75,9 +88,9 @@ def auth():
         return jsonify({"success": False, "error": "ORG required"})
     token = get_manhattan_token(org)
     if token:
-        send_ha_message({"event": "dispatch_auth", "org": org, "success": True})
+        emit_usage_event("dispatch_auth", {"org": org, "success": True})
         return jsonify({"success": True, "token": token})
-    send_ha_message({"event": "dispatch_auth", "org": org, "success": False})
+    emit_usage_event("dispatch_auth", {"org": org, "success": False})
     return jsonify({"success": False, "error": "Auth failed"})
 
 
@@ -626,7 +639,7 @@ def search_trips():
     if not all([org, token]):
         return jsonify({"success": False, "error": "Missing org or token"})
 
-    send_ha_message({"event": "dispatch_search_trips", "org": org, "filters": filters})
+    emit_usage_event("dispatch_search_trips", {"org": org, "filters": filters})
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -1040,7 +1053,7 @@ def assign_trip():
     if not all([org, token, trip_id, driver_code]):
         return jsonify({"success": False, "error": "Missing required fields (org, token, trip_id, driver_code)"})
 
-    send_ha_message({"event": "dispatch_assign_trip", "org": org, "trip_id": trip_id, "driver_code": driver_code})
+    emit_usage_event("dispatch_assign_trip", {"org": org, "trip_id": trip_id, "driver_code": driver_code})
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -1091,12 +1104,12 @@ def assign_trip():
         return jsonify({"success": False, "error": str(e)})
 
 
-@app.route('/api/ha-track', methods=['POST'])
-def ha_track():
+@app.route('/api/usage-track', methods=['POST'])
+def usage_track():
     data = request.json or {}
     event_name = data.get('event_name')
     metadata = data.get('metadata', {})
-    send_ha_message({"event": event_name, **metadata})
+    emit_usage_event(event_name, metadata)
     return jsonify({"success": True})
 
 
